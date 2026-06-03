@@ -8,7 +8,7 @@ import type { Match } from "@/types";
 import { Card } from "@/components/ui/Card";
 
 export default function HistoryPage() {
-  const { data, hydrated } = useAppData();
+  const { data, hydrated, isAdmin, removeMatchById } = useAppData();
   const [filterDate, setFilterDate] = useState("");
 
   const sorted = useMemo(() => {
@@ -32,7 +32,12 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">比賽紀錄</h2>
+      <h2 className="text-xl font-bold mb-1">比賽紀錄</h2>
+      {isAdmin && (
+        <p className="text-xs text-arena-purple mb-4">
+          管理員可刪除比賽紀錄
+        </p>
+      )}
 
       {dates.length > 0 && (
         <div className="flex gap-2 overflow-x-auto mb-4 pb-1">
@@ -69,38 +74,71 @@ export default function HistoryPage() {
           <p className="text-center text-gray-500 py-6">尚無紀錄</p>
         </Card>
       ) : (
-        filtered.map((m) => <HistoryRow key={m.id} match={m} />)
+        filtered.map((m) => (
+          <HistoryRow
+            key={m.id}
+            match={m}
+            canDelete={isAdmin}
+            onDelete={removeMatchById}
+          />
+        ))
       )}
     </div>
   );
 }
 
-function HistoryRow({ match }: { match: Match }) {
+function HistoryRow({
+  match,
+  canDelete,
+  onDelete,
+}: {
+  match: Match;
+  canDelete?: boolean;
+  onDelete?: (matchId: string) => boolean;
+}) {
   const winner = match.players.find((p) => p.id === match.winnerPlayerId);
   const typeLabel = match.matchType === "1v1" ? "1v1" : "循環賽";
 
+  const href =
+    match.status === "setup"
+      ? `/match/${match.id}/setup`
+      : match.matchType === "roundRobin"
+        ? `/match/${match.id}/round-robin`
+        : `/match/${match.id}/dashboard`;
+
+  const handleDelete = () => {
+    if (!onDelete) return;
+    if (!confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)) return;
+    onDelete(match.id);
+  };
+
   return (
-    <Link
-      href={
-        match.matchType === "roundRobin"
-          ? `/match/${match.id}/round-robin`
-          : `/match/${match.id}/dashboard`
-      }
-    >
-      <Card className="mb-3 hover:border-arena-purple/40 transition-colors">
-        <h3 className="font-bold text-arena-neon">{match.name}</h3>
-        <p className="text-sm text-gray-400 mt-1">
-          {formatDisplayDate(match.date)} · {match.time} · {match.location}
-        </p>
-        <p className="text-sm text-gray-500 mt-1">
-          {typeLabel} · {match.players.map((p) => p.name).join(", ")}
-        </p>
-        {winner && (
-          <p className="text-sm text-arena-purple mt-2 font-medium">
-            冠軍：{winner.name}
+    <Card className="mb-3 hover:border-arena-purple/40 transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <Link href={href} className="min-w-0 flex-1">
+          <h3 className="font-bold text-arena-neon">{match.name}</h3>
+          <p className="text-sm text-gray-400 mt-1">
+            {formatDisplayDate(match.date)} · {match.time} · {match.location}
           </p>
+          <p className="text-sm text-gray-500 mt-1">
+            {typeLabel} · {match.players.map((p) => p.name).join(", ")}
+          </p>
+          {winner && (
+            <p className="text-sm text-arena-purple mt-2 font-medium">
+              冠軍：{winner.name}
+            </p>
+          )}
+        </Link>
+        {canDelete && onDelete && (
+          <button
+            type="button"
+            className="text-sm text-red-400 shrink-0 px-2 py-1"
+            onClick={handleDelete}
+          >
+            刪除
+          </button>
         )}
-      </Card>
-    </Link>
+      </div>
+    </Card>
   );
 }

@@ -55,7 +55,7 @@ export default function LoginPage() {
         {mode === "login" ? "登入" : "註冊帳號"}
       </h2>
       <p className="text-sm text-gray-500 mb-4">
-        每位選手需設定帳號與密碼。管理員 RINGO 可刪除帳號與比賽。
+        每位選手需設定帳號與密碼後才能使用。
       </p>
 
       {syncEnabled && (
@@ -117,13 +117,6 @@ export default function LoginPage() {
           {mode === "login" ? "登入" : "建立帳號"}
         </Button>
       </Card>
-
-      <p className="text-xs text-gray-600">
-        管理員帳號 <strong className="text-arena-purple">RINGO</strong>{" "}
-        初始密碼為 <strong>99913579</strong>（可在 Vercel 以{" "}
-        <code className="text-arena-neon">RINGO_BOOTSTRAP_PASSWORD</code>{" "}
-        環境變數更改）。
-      </p>
     </div>
   );
 }

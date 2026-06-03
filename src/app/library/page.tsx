@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useAppData } from "@/hooks/useAppData";
 import { BeybladeForm } from "@/components/beyblade/BeybladeForm";
+import { AllPartsCatalog } from "@/components/beyblade/AllPartsCatalog";
 import { PartsCatalogBanner } from "@/components/beyblade/PartsCatalogBanner";
 import {
   PartsCatalogProvider,
@@ -16,7 +17,7 @@ import {
   type BeybladePartField,
 } from "@/lib/phstudy/mapping";
 import type { PhstudyPartCategory } from "@/lib/phstudy/types";
-import type { Beyblade, LibraryPart } from "@/types";
+import type { Beyblade } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
@@ -78,77 +79,9 @@ function BuildComposer({
   );
 }
 
-function PartsSection({
-  parts,
-  onAdd,
-  onRemove,
-}: {
-  parts: LibraryPart[];
-  onAdd: (p: Omit<LibraryPart, "id">) => void;
-  onRemove: (id: string) => void;
-}) {
-  const { catalog } = usePartsCatalogContext();
-  const [q, setQ] = useState("");
-
-  const list =
-    catalog?.categories.Blade?.filter((o) =>
-      o.name.toLowerCase().includes(q.toLowerCase())
-    ).slice(0, 10) ?? [];
-
-  return (
-    <div>
-      {parts.map((p) => (
-        <Card key={p.id} className="mb-2 flex justify-between">
-          <span className="text-sm">
-            {p.name}{" "}
-            <span className="text-gray-600 text-xs">({p.category})</span>
-          </span>
-          <button
-            type="button"
-            className="text-red-400 text-xs"
-            onClick={() => onRemove(p.id)}
-          >
-            刪除
-          </button>
-        </Card>
-      ))}
-      <Card className="mt-4">
-        <label className="label-arena">搜尋 Blade 零件加入</label>
-        <input
-          className="input-arena mb-2"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        {list.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            className="block w-full text-left py-2 text-sm border-b border-arena-border/30"
-            onClick={() =>
-              onAdd({
-                phstudyId: o.id,
-                category: "Blade",
-                name: o.name,
-                partType: o.type,
-              })
-            }
-          >
-            {o.name}
-          </button>
-        ))}
-      </Card>
-    </div>
-  );
-}
-
 export default function LibraryPage() {
-  const {
-    userLibrary,
-    addPartToLibrary,
-    removePartFromLibrary,
-    saveBuildToLibrary,
-    removeBuildFromLibrary,
-  } = useAppData();
+  const { userLibrary, saveBuildToLibrary, removeBuildFromLibrary } =
+    useAppData();
   const [tab, setTab] = useState<"builds" | "parts">("builds");
 
   return (
@@ -207,11 +140,12 @@ export default function LibraryPage() {
         )}
 
         {tab === "parts" && (
-          <PartsSection
-            parts={userLibrary.savedParts}
-            onAdd={addPartToLibrary}
-            onRemove={removePartFromLibrary}
-          />
+          <>
+            <p className="text-sm text-gray-500 mb-3">
+              phstudy 八類零件完整目錄（含圖片），可搜尋瀏覽。
+            </p>
+            <AllPartsCatalog />
+          </>
         )}
       </div>
     </PartsCatalogProvider>

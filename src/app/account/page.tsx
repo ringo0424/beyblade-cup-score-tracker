@@ -39,14 +39,14 @@ export default function AccountPage() {
           router.push("/login");
         }}
       >
-        切換帳號
+        登出
       </Button>
 
       {isAdmin && (
         <>
           <section className="mb-6">
             <h3 className="text-sm font-bold text-arena-purple mb-2">
-              管理員：刪除比賽
+              管理員：刪除比賽紀錄
             </h3>
             {data.matches.length === 0 ? (
               <p className="text-gray-600 text-sm">尚無比賽</p>

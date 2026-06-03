@@ -16,10 +16,14 @@ export function MatchCard({
   match,
   accountId,
   onJoin,
+  canDelete,
+  onDelete,
 }: {
   match: Match;
   accountId?: string;
   onJoin?: (matchId: string) => void;
+  canDelete?: boolean;
+  onDelete?: (matchId: string) => boolean;
 }) {
   const router = useRouter();
   const winner = match.players.find((p) => p.id === match.winnerPlayerId);
@@ -72,17 +76,36 @@ export function MatchCard({
             </p>
           )}
         </div>
-        <span
-          className={`text-xs px-2 py-1 rounded-full shrink-0 ${
-            match.status === "completed"
-              ? "bg-green-950 text-green-400"
-              : match.status === "inProgress"
-                ? "bg-arena-neon/20 text-arena-neon"
-                : "bg-gray-800 text-gray-400"
-          }`}
-        >
-          {joined ? "已加入" : statusLabel}
-        </span>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span
+            className={`text-xs px-2 py-1 rounded-full ${
+              match.status === "completed"
+                ? "bg-green-950 text-green-400"
+                : match.status === "inProgress"
+                  ? "bg-arena-neon/20 text-arena-neon"
+                  : "bg-gray-800 text-gray-400"
+            }`}
+          >
+            {joined ? "已加入" : statusLabel}
+          </span>
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              className="text-xs text-red-400"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (
+                  confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)
+                ) {
+                  onDelete(match.id);
+                }
+              }}
+            >
+              刪除
+            </button>
+          )}
+        </div>
       </div>
 
       {winner && (

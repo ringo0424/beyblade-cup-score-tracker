@@ -17,6 +17,8 @@ export default function HomePage() {
     syncEnabled,
     syncError,
     joinMatchById,
+    isAdmin,
+    removeMatchById,
     loadSample,
     resetAll,
   } = useAppData();
@@ -70,6 +72,8 @@ export default function HomePage() {
               match={m}
               accountId={currentAccount.id}
               onJoin={joinMatchById}
+              canDelete={isAdmin}
+              onDelete={removeMatchById}
             />
           ))}
         </section>
@@ -96,6 +100,8 @@ export default function HomePage() {
               match={m}
               accountId={currentAccount.id}
               onJoin={joinMatchById}
+              canDelete={isAdmin}
+              onDelete={removeMatchById}
             />
           ))
         )}
@@ -109,6 +115,8 @@ export default function HomePage() {
               key={m.id}
               match={m}
               accountId={currentAccount.id}
+              canDelete={isAdmin}
+              onDelete={removeMatchById}
             />
           ))}
         </section>
