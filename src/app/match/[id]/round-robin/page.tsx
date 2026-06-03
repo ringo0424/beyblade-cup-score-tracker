@@ -16,6 +16,7 @@ import type { FinishType, Match } from "@/types";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
 import { ScoreButtons } from "@/components/match/ScoreButtons";
 import { Leaderboard } from "@/components/match/Leaderboard";
+import { MatchEndScreen } from "@/components/match/MatchEndScreen";
 import { ReplayConfirmModal } from "@/components/match/ReplayConfirmModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,7 +28,7 @@ export default function RoundRobinPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data, saveMatch, hydrated } = useAppData();
+  const { data, saveMatch, hydrated, toxicQuotesEnabled } = useAppData();
   const [match, setMatch] = useState<Match | null>(null);
   const [showReplay, setShowReplay] = useState(false);
 
@@ -64,21 +65,16 @@ export default function RoundRobinPage({
   };
 
   if (allDone) {
-    const winner = match.players.find((p) => p.id === match.winnerPlayerId);
     return (
-      <div>
-        <h2 className="text-xl font-bold text-arena-neon mb-2">{match.name}</h2>
-        <Card glow className="text-center py-6 mb-4">
-          <p className="text-sm text-gray-500">比賽結束</p>
-          <p className="text-2xl font-bold text-arena-purple mt-2">
-            冠軍：{winner?.name ?? "—"}
-          </p>
-        </Card>
-        <Leaderboard
-          entries={leaderboard}
-          highlightId={match.winnerPlayerId}
-        />
-        <h3 className="text-sm font-semibold text-gray-500 mb-2">對戰組合</h3>
+      <MatchEndScreen
+        match={match}
+        data={data}
+        toxicQuotesEnabled={toxicQuotesEnabled}
+        onHome={() => router.push("/")}
+      >
+        <h3 className="text-sm font-semibold text-gray-500 mb-2 mt-4">
+          對戰組合
+        </h3>
         {match.pairings.map((p) => {
           const a = match.players.find((x) => x.id === p.playerAId)!;
           const b = match.players.find((x) => x.id === p.playerBId)!;
@@ -88,10 +84,7 @@ export default function RoundRobinPage({
             </Card>
           );
         })}
-        <Button fullWidth className="mt-4" onClick={() => router.push("/")}>
-          返回首頁
-        </Button>
-      </div>
+      </MatchEndScreen>
     );
   }
 

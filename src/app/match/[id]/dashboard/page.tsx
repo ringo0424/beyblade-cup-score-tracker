@@ -15,6 +15,7 @@ import {
 import type { FinishType, Match } from "@/types";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
 import { ScoreButtons } from "@/components/match/ScoreButtons";
+import { MatchEndScreen } from "@/components/match/MatchEndScreen";
 import { ReplayConfirmModal } from "@/components/match/ReplayConfirmModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,7 +27,7 @@ export default function DashboardPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data, saveMatch, hydrated } = useAppData();
+  const { data, saveMatch, hydrated, toxicQuotesEnabled } = useAppData();
   const [match, setMatch] = useState<Match | null>(null);
   const [showReplay, setShowReplay] = useState(false);
 
@@ -127,6 +128,17 @@ export default function DashboardPage({
       ? "無上限"
       : `先達 ${match.scoreTarget} 分`;
 
+  if (match.status === "completed") {
+    return (
+      <MatchEndScreen
+        match={match}
+        data={data}
+        toxicQuotesEnabled={toxicQuotesEnabled}
+        onHome={() => router.push("/")}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="flex justify-between items-start mb-4">
@@ -167,9 +179,9 @@ export default function DashboardPage({
         />
       </div>
 
-      {battleDone || match.status === "completed" ? (
+      {battleDone ? (
         <Card glow className="mb-4 text-center py-6">
-          <p className="text-arena-neon font-bold text-lg">比賽已結束</p>
+          <p className="text-arena-neon font-bold text-lg">本場對戰已結束</p>
           {pairing.winnerPlayerId && (
             <p className="mt-2 text-arena-purple">
               勝者：
@@ -179,9 +191,6 @@ export default function DashboardPage({
               }
             </p>
           )}
-          <Button fullWidth className="mt-4" onClick={() => router.push("/")}>
-            返回首頁
-          </Button>
         </Card>
       ) : (
         <>
@@ -204,7 +213,7 @@ export default function DashboardPage({
         </>
       )}
 
-      {!battleDone && match.status !== "completed" && (
+      {!battleDone && (
         <Button
           variant="danger"
           fullWidth

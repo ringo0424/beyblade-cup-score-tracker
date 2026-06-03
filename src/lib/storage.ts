@@ -5,7 +5,7 @@ import { sampleAppData } from "./sampleData";
 
 import { ensureRingoAccount } from "@/lib/auth/password";
 
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
 function emptyData(): AppData {
   return {
@@ -13,6 +13,8 @@ function emptyData(): AppData {
     matches: [],
     accounts: ensureRingoAccount([]),
     libraries: [],
+    fighters: [],
+    settings: {},
     version: DATA_VERSION,
   };
 }
@@ -24,6 +26,8 @@ export function normalizeAppData(raw: Partial<AppData>): AppData {
     matches: raw.matches ?? [],
     accounts,
     libraries: raw.libraries ?? [],
+    fighters: raw.fighters ?? [],
+    settings: raw.settings ?? {},
     version: DATA_VERSION,
   };
 }

@@ -37,6 +37,7 @@ import {
   removeLibraryBuild,
   removeLibraryPart,
 } from "@/lib/library";
+import { setFighterIcon as setFighterIconAction } from "@/lib/fighters/profiles";
 import type { PhstudyPartCategory } from "@/lib/phstudy/types";
 import { isSyncConfigured } from "@/lib/sync/supabase";
 import {
@@ -73,6 +74,9 @@ interface AppDataContextValue {
     partTypes: Partial<Record<PhstudyPartCategory, string>>
   ) => void;
   removeBuildFromLibrary: (buildId: string) => void;
+  toxicQuotesEnabled: boolean;
+  setToxicQuotesEnabled: (enabled: boolean) => void;
+  setFighterIcon: (displayName: string, icon: string | undefined) => boolean;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -98,6 +102,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ? findAccountById(dataOrEmpty, currentAccountId) ?? null
     : null;
   const isAdmin = isAdminAccount(currentAccount);
+  const toxicQuotesEnabled = Boolean(dataOrEmpty.settings?.toxicQuotesEnabled);
   const userLibrary = currentAccount
     ? getUserLibrary(dataOrEmpty, currentAccount.id)
     : { accountId: "", savedParts: [], builds: [] };
@@ -304,6 +309,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [currentAccount, data, persist]
   );
 
+  const setToxicQuotesEnabled = useCallback(
+    (enabled: boolean) => {
+      if (!data) return;
+      persist({
+        ...data,
+        settings: { ...data.settings, toxicQuotesEnabled: enabled },
+      });
+    },
+    [data, persist]
+  );
+
+  const setFighterIcon = useCallback(
+    (displayName: string, icon: string | undefined): boolean => {
+      if (!data || !isAdminAccount(currentAccount)) return false;
+      persist(setFighterIconAction(data, displayName, icon));
+      return true;
+    },
+    [currentAccount, data, persist]
+  );
+
   const value: AppDataContextValue = {
     data: dataOrEmpty,
     hydrated,
@@ -327,6 +352,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     removePartFromLibrary,
     saveBuildToLibrary,
     removeBuildFromLibrary,
+    toxicQuotesEnabled,
+    setToxicQuotesEnabled,
+    setFighterIcon,
   };
 
   return (

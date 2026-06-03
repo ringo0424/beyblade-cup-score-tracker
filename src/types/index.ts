@@ -169,6 +169,21 @@ export interface Account {
   createdAt: string;
 }
 
+/** 選手檔案（Icon 等；冠亞軍次數由比賽紀錄計算） */
+export interface FighterProfile {
+  id: string;
+  nameKey: string;
+  displayName: string;
+  accountId?: string;
+  /** Emoji 或短文字，最多 8 字元 */
+  icon?: string;
+}
+
+export interface AppSettings {
+  /** 毒舌評語池（可選） */
+  toxicQuotesEnabled?: boolean;
+}
+
 export interface EventDay {
   id: string;
   date: string;
@@ -182,5 +197,7 @@ export interface AppData {
   matches: Match[];
   accounts: Account[];
   libraries: UserLibrary[];
+  fighters?: FighterProfile[];
+  settings?: AppSettings;
   version: number;
 }
