@@ -63,6 +63,8 @@ interface AppDataContextValue {
   hydrated: boolean;
   syncStatus: SyncStatus;
   syncError: string | null;
+  syncRefreshing: boolean;
+  refreshCloudSync: () => Promise<string>;
   syncEnabled: boolean;
   currentAccount: Account | null;
   isAdmin: boolean;
@@ -102,6 +104,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [currentAccountId, setCurrentAccountId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncRefreshing, setSyncRefreshing] = useState(false);
   const revisionRef = useRef(0);
   const applyingRemoteRef = useRef(false);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +177,86 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
     [persistLocal, scheduleCloudPush, syncEnabled]
   );
+
+  const forcePushToCloud = useCallback(
+    async (payload: AppData): Promise<{ ok: true } | { ok: false; error: string }> => {
+      let current = payload;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const result = await pushGlobalState(
+          stripPhotosForCloudSync(current),
+          revisionRef.current
+        );
+        if (result.ok) {
+          revisionRef.current = result.revision;
+          return { ok: true };
+        }
+        if ("conflict" in result && result.conflict) {
+          revisionRef.current = result.revision;
+          const local = attachLocalPhotos(dataRef.current ?? loadAppData());
+          current = mergeAppData(local, result.payload);
+          applyingRemoteRef.current = true;
+          persistLocal(current);
+          applyingRemoteRef.current = false;
+          continue;
+        }
+        const err =
+          "error" in result && result.error
+            ? result.error
+            : "無法上傳到雲端";
+        return { ok: false, error: err };
+      }
+      return { ok: false, error: "同步衝突次數過多，請稍後再試" };
+    },
+    [persistLocal]
+  );
+
+  const refreshCloudSync = useCallback(async (): Promise<string> => {
+    if (!syncEnabled) {
+      return "未設定雲端同步（僅本機模式）";
+    }
+
+    if (pushTimerRef.current) {
+      clearTimeout(pushTimerRef.current);
+      pushTimerRef.current = null;
+    }
+
+    setSyncRefreshing(true);
+    setSyncError(null);
+    setSyncStatus("connecting");
+
+    try {
+      const fetched = await fetchGlobalState();
+      if ("error" in fetched) {
+        setSyncStatus("error");
+        setSyncError(fetched.error);
+        return `讀取失敗：${fetched.error}`;
+      }
+
+      const local = attachLocalPhotos(dataRef.current ?? loadAppData());
+      const remote = attachLocalPhotos(fetched.payload);
+      const merged = mergeAppData(local, remote);
+
+      applyingRemoteRef.current = true;
+      revisionRef.current = fetched.revision;
+      persistLocal(merged);
+      applyingRemoteRef.current = false;
+
+      const pushResult = await forcePushToCloud(merged);
+      const accounts = merged.accounts.filter((a) => a.passwordHash).length;
+
+      if (pushResult.ok) {
+        setSyncStatus("synced");
+        setSyncError(null);
+        return `同步完成：${accounts} 個帳號、${merged.matches.length} 場比賽（已合併並上傳雲端）`;
+      }
+
+      setSyncStatus("error");
+      setSyncError(pushResult.error);
+      return `已合併本機資料（${accounts} 帳號），但上傳失敗：${pushResult.error}`;
+    } finally {
+      setSyncRefreshing(false);
+    }
+  }, [forcePushToCloud, persistLocal, syncEnabled]);
 
   useEffect(() => {
     const local = attachLocalPhotos(loadAppData());
@@ -383,6 +466,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     hydrated,
     syncStatus,
     syncError,
+    syncRefreshing,
+    refreshCloudSync,
     syncEnabled,
     currentAccount,
     isAdmin,

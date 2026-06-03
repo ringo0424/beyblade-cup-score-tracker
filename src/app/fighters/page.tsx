@@ -6,12 +6,12 @@ import { computeFighterStats } from "@/lib/fighters/stats";
 import { fighterNameKey } from "@/lib/fighters/keys";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 const ICON_PRESETS = ["🏆", "👑", "⚔️", "🔥", "💎", "🌟", "🐉", "🦅", "🎯", "💀"];
 
 export default function FightersPage() {
-  const { data, hydrated, isAdmin, setFighterIcon, syncEnabled, syncStatus } =
-    useAppData();
+  const { data, hydrated, isAdmin, setFighterIcon } = useAppData();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftIcon, setDraftIcon] = useState("");
 
@@ -36,14 +36,11 @@ export default function FightersPage() {
   return (
     <div>
       <h2 className="text-xl font-bold mb-1">選手</h2>
-      <p className="text-sm text-gray-500 mb-2">
+      <p className="text-sm text-gray-500 mb-4">
         已註冊帳號（全 App 同步）· 共 {registered.length} 人
       </p>
-      {syncEnabled && (
-        <p className="text-xs text-gray-600 mb-4">
-          同步狀態：{syncStatus === "synced" ? "已連線" : syncStatus}
-        </p>
-      )}
+
+      <CloudSyncBar />
 
       {registered.length === 0 ? (
         <Card>

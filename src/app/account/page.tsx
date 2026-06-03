@@ -6,6 +6,7 @@ import { useAppData } from "@/hooks/useAppData";
 import { formatDisplayDate } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -29,6 +30,8 @@ export default function AccountPage() {
           <span className="ml-2 text-xs text-arena-purple">管理員</span>
         )}
       </p>
+
+      <CloudSyncBar />
 
       <Button
         variant="secondary"

@@ -7,15 +7,13 @@ import { getTodayMatches, getTodayDateString, formatDisplayDate } from "@/lib/st
 import { MatchCard } from "@/components/match/MatchCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 export default function HomePage() {
   const {
     data,
     hydrated,
     currentAccount,
-    syncStatus,
-    syncEnabled,
-    syncError,
     joinMatchById,
     isAdmin,
     removeMatchById,
@@ -45,27 +43,12 @@ export default function HomePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 text-xs">
+      <div className="mb-4 text-xs">
         <Link href="/account" className="text-arena-neon hover:underline">
           {currentAccount.name}
         </Link>
-        {syncEnabled && (
-          <span
-            className={
-              syncStatus === "synced"
-                ? "text-arena-neon"
-                : syncStatus === "error"
-                  ? "text-red-400"
-                  : "text-gray-500"
-            }
-          >
-            {syncStatus === "synced" ? "全 App 同步中" : syncStatus}
-          </span>
-        )}
       </div>
-      {syncError && (
-        <p className="text-xs text-amber-500 mb-3">{syncError}</p>
-      )}
+      <CloudSyncBar />
 
       {preparing.length > 0 && (
         <section className="mb-6">
