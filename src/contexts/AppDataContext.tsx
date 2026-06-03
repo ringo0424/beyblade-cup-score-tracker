@@ -9,24 +9,35 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Account, AppData, Match } from "@/types";
+import type { Account, AppData, Beyblade, LibraryBuild, LibraryPart, Match } from "@/types";
 import { CURRENT_ACCOUNT_STORAGE_KEY } from "@/lib/constants";
 import {
   addAccount,
+  authenticateAccount,
   findAccountById,
-  findAccountByName,
   isAdminAccount,
   joinMatch as joinMatchAction,
   removeAccount,
 } from "@/lib/accounts";
 import {
   loadAppData,
+  normalizeAppData,
   saveAppData,
   upsertMatch,
   deleteMatch as removeMatch,
   seedSampleData,
   clearAllData,
 } from "@/lib/storage";
+import {
+  addLibraryBuild,
+  addLibraryPart,
+  createLibraryBuild,
+  getUserLibrary,
+  libraryBuildToBeyblade,
+  removeLibraryBuild,
+  removeLibraryPart,
+} from "@/lib/library";
+import type { PhstudyPartCategory } from "@/lib/phstudy/types";
 import { isSyncConfigured } from "@/lib/sync/supabase";
 import {
   fetchGlobalState,
@@ -44,16 +55,24 @@ interface AppDataContextValue {
   syncEnabled: boolean;
   currentAccount: Account | null;
   isAdmin: boolean;
+  userLibrary: ReturnType<typeof getUserLibrary>;
   saveMatch: (match: Match) => void;
-  removeMatchById: (matchId: string) => void;
+  removeMatchById: (matchId: string) => boolean;
   loadSample: () => void;
   resetAll: () => void;
   setData: (next: AppData) => void;
-  loginAs: (accountId: string) => void;
+  loginWithPassword: (name: string, password: string) => string | null;
+  registerWithPassword: (name: string, password: string) => string | null;
   logout: () => void;
-  registerAccount: (name: string) => Account | null;
   deleteAccountById: (accountId: string) => boolean;
   joinMatchById: (matchId: string) => boolean;
+  addPartToLibrary: (part: Omit<LibraryPart, "id">) => void;
+  removePartFromLibrary: (partId: string) => void;
+  saveBuildToLibrary: (
+    beyblade: Beyblade,
+    partTypes: Partial<Record<PhstudyPartCategory, string>>
+  ) => void;
+  removeBuildFromLibrary: (buildId: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -74,20 +93,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncEnabled = isSyncConfigured();
-  const dataOrEmpty = data ?? {
-    eventDays: [],
-    matches: [],
-    accounts: [],
-    version: 2,
-  };
+  const dataOrEmpty = data ?? normalizeAppData({});
   const currentAccount = currentAccountId
     ? findAccountById(dataOrEmpty, currentAccountId) ?? null
     : null;
   const isAdmin = isAdminAccount(currentAccount);
+  const userLibrary = currentAccount
+    ? getUserLibrary(dataOrEmpty, currentAccount.id)
+    : { accountId: "", savedParts: [], builds: [] };
 
   const persistLocal = useCallback((next: AppData) => {
-    setDataState(next);
-    saveAppData(next);
+    const normalized = normalizeAppData(next);
+    setDataState(normalized);
+    saveAppData(normalized);
   }, []);
 
   const scheduleCloudPush = useCallback(
@@ -117,10 +135,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const persist = useCallback(
     (next: AppData) => {
-      persistLocal(next);
+      const normalized = normalizeAppData(next);
+      persistLocal(normalized);
       if (syncEnabled) {
         setSyncStatus("synced");
-        scheduleCloudPush(next);
+        scheduleCloudPush(normalized);
       }
     },
     [persistLocal, scheduleCloudPush, syncEnabled]
@@ -151,8 +170,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!syncEnabled) return;
-
-    const unsubscribe = subscribeGlobalState((payload, revision) => {
+    return subscribeGlobalState((payload, revision) => {
       if (revision <= revisionRef.current) return;
       applyingRemoteRef.current = true;
       revisionRef.current = revision;
@@ -160,9 +178,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
     });
-
-    return unsubscribe;
   }, [persistLocal, syncEnabled]);
+
+  const loginAs = useCallback((accountId: string) => {
+    localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, accountId);
+    setCurrentAccountId(accountId);
+  }, []);
 
   const saveMatch = useCallback(
     (match: Match) => {
@@ -173,11 +194,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const removeMatchById = useCallback(
-    (matchId: string) => {
-      if (!data) return;
+    (matchId: string): boolean => {
+      if (!data || !isAdminAccount(currentAccount)) return false;
       persist(removeMatch(data, matchId));
+      return true;
     },
-    [data, persist]
+    [currentAccount, data, persist]
   );
 
   const loadSample = useCallback(() => {
@@ -188,39 +210,48 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     persist(clearAllData());
   }, [persist]);
 
-  const loginAs = useCallback((accountId: string) => {
-    localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, accountId);
-    setCurrentAccountId(accountId);
-  }, []);
-
   const logout = useCallback(() => {
     localStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
     setCurrentAccountId(null);
   }, []);
 
-  const registerAccount = useCallback(
-    (name: string): Account | null => {
-      if (!data) return null;
-      const existing = findAccountByName(data, name);
-      if (existing) {
-        loginAs(existing.id);
-        return existing;
+  const loginWithPassword = useCallback(
+    (name: string, password: string): string | null => {
+      if (!data) return "載入中";
+      const account = authenticateAccount(data, name, password);
+      if (!account) return "帳號或密碼錯誤";
+      loginAs(account.id);
+      return null;
+    },
+    [data, loginAs]
+  );
+
+  const registerWithPassword = useCallback(
+    (name: string, password: string): string | null => {
+      if (!data) return "載入中";
+      if (password.length < 4) return "密碼至少 4 字";
+      if (authenticateAccount(data, name, password)) {
+        loginAs(authenticateAccount(data, name, password)!.id);
+        return null;
       }
-      const next = addAccount(data, name);
+      const existing = data.accounts.find(
+        (a) => a.name.toLowerCase() === name.trim().toLowerCase()
+      );
+      if (existing) return "此帳號已存在，請直接登入";
+      const next = addAccount(data, name, password);
       const created = next.accounts[next.accounts.length - 1];
       persist(next);
       loginAs(created.id);
-      return created;
+      return null;
     },
-    [data, persist, loginAs]
+    [data, loginAs, persist]
   );
 
   const deleteAccountById = useCallback(
     (accountId: string): boolean => {
       if (!data || !isAdminAccount(currentAccount)) return false;
       if (accountId === currentAccount?.id) return false;
-      const next = removeAccount(data, accountId);
-      persist(next);
+      persist(removeAccount(data, accountId));
       return true;
     },
     [currentAccount, data, persist]
@@ -237,6 +268,42 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [currentAccount, data, persist]
   );
 
+  const addPartToLibrary = useCallback(
+    (part: Omit<LibraryPart, "id">) => {
+      if (!data || !currentAccount) return;
+      persist(addLibraryPart(data, currentAccount.id, part));
+    },
+    [currentAccount, data, persist]
+  );
+
+  const removePartFromLibrary = useCallback(
+    (partId: string) => {
+      if (!data || !currentAccount) return;
+      persist(removeLibraryPart(data, currentAccount.id, partId));
+    },
+    [currentAccount, data, persist]
+  );
+
+  const saveBuildToLibrary = useCallback(
+    (
+      beyblade: Beyblade,
+      partTypes: Partial<Record<PhstudyPartCategory, string>>
+    ) => {
+      if (!data || !currentAccount) return;
+      const build = createLibraryBuild(beyblade, partTypes);
+      persist(addLibraryBuild(data, currentAccount.id, build));
+    },
+    [currentAccount, data, persist]
+  );
+
+  const removeBuildFromLibrary = useCallback(
+    (buildId: string) => {
+      if (!data || !currentAccount) return;
+      persist(removeLibraryBuild(data, currentAccount.id, buildId));
+    },
+    [currentAccount, data, persist]
+  );
+
   const value: AppDataContextValue = {
     data: dataOrEmpty,
     hydrated,
@@ -245,20 +312,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     syncEnabled,
     currentAccount,
     isAdmin,
+    userLibrary,
     saveMatch,
     removeMatchById,
     loadSample,
     resetAll,
     setData: persist,
-    loginAs,
+    loginWithPassword,
+    registerWithPassword,
     logout,
-    registerAccount,
     deleteAccountById,
     joinMatchById,
+    addPartToLibrary,
+    removePartFromLibrary,
+    saveBuildToLibrary,
+    removeBuildFromLibrary,
   };
 
   return (
-    <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
+    <AppDataContext.Provider value={value}>
+      {children}
+    </AppDataContext.Provider>
   );
 }
 
@@ -269,3 +343,5 @@ export function useAppData(): AppDataContextValue {
   }
   return ctx;
 }
+
+export { libraryBuildToBeyblade };

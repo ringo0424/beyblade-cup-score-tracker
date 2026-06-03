@@ -8,6 +8,8 @@ import { AccountGate } from "@/components/auth/AccountGate";
 
 const navItems = [
   { href: "/", label: "首頁", icon: "🏠" },
+  { href: "/library", label: "陀螺庫", icon: "📦" },
+  { href: "/stats", label: "數據", icon: "📊" },
   { href: "/match/create", label: "新賽", icon: "⚔️" },
   { href: "/history", label: "紀錄", icon: "📋" },
 ];
@@ -35,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {!hideNav && (
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-arena-card/95 backdrop-blur border-t border-arena-border safe-area-pb">
-          <div className="max-w-lg mx-auto flex justify-around py-2">
+          <div className="max-w-lg mx-auto flex justify-around py-2 px-1">
             {navItems.map((item) => {
               const active =
                 item.href === "/"
@@ -45,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-colors ${
+                  className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl transition-colors min-w-0 ${
                     active
                       ? "text-arena-neon"
                       : "text-gray-500 hover:text-gray-300"

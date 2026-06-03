@@ -9,15 +9,19 @@ import { Card } from "@/components/ui/Card";
 export default function LoginPage() {
   const router = useRouter();
   const {
-    data,
     hydrated,
     currentAccount,
-    loginAs,
-    registerAccount,
+    loginWithPassword,
+    registerWithPassword,
     syncEnabled,
     syncStatus,
   } = useAppData();
-  const [newName, setNewName] = useState("");
+
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   if (!hydrated) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
@@ -28,18 +32,30 @@ export default function LoginPage() {
     return null;
   }
 
-  const handleCreate = () => {
-    const name = newName.trim();
-    if (!name) return;
-    registerAccount(name);
+  const submit = () => {
+    setError(null);
+    if (mode === "register" && password !== confirm) {
+      setError("兩次密碼不一致");
+      return;
+    }
+    const err =
+      mode === "login"
+        ? loginWithPassword(name, password)
+        : registerWithPassword(name, password);
+    if (err) {
+      setError(err);
+      return;
+    }
     router.push("/");
   };
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1">選擇帳號</h2>
+      <h2 className="text-xl font-bold mb-1">
+        {mode === "login" ? "登入" : "註冊帳號"}
+      </h2>
       <p className="text-sm text-gray-500 mb-4">
-        不用密碼，點名字即可登入。資料會與所有使用者即時同步。
+        每位選手需設定帳號與密碼。管理員 RINGO 可刪除帳號與比賽。
       </p>
 
       {syncEnabled && (
@@ -48,49 +64,65 @@ export default function LoginPage() {
         </p>
       )}
 
-      <Card className="mb-4">
-        <label className="label-arena">新建帳號</label>
-        <div className="flex gap-2">
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={mode === "login" ? "primary" : "secondary"}
+          className="flex-1"
+          onClick={() => setMode("login")}
+        >
+          登入
+        </Button>
+        <Button
+          variant={mode === "register" ? "primary" : "secondary"}
+          className="flex-1"
+          onClick={() => setMode("register")}
+        >
+          註冊
+        </Button>
+      </div>
+
+      <Card className="mb-4 space-y-3">
+        <div>
+          <label className="label-arena">帳號名稱</label>
           <input
-            className="input-arena flex-1"
+            className="input-arena"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder="你的名字"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
-          <Button onClick={handleCreate} disabled={!newName.trim()}>
-            建立
-          </Button>
         </div>
+        <div>
+          <label className="label-arena">密碼</label>
+          <input
+            type="password"
+            className="input-arena"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="至少 4 字"
+          />
+        </div>
+        {mode === "register" && (
+          <div>
+            <label className="label-arena">確認密碼</label>
+            <input
+              type="password"
+              className="input-arena"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
+        )}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <Button fullWidth onClick={submit}>
+          {mode === "login" ? "登入" : "建立帳號"}
+        </Button>
       </Card>
 
-      <h3 className="text-sm font-bold text-gray-400 mb-2">已有帳號</h3>
-      {data.accounts.length === 0 ? (
-        <Card>
-          <p className="text-gray-500 text-center py-4 text-sm">
-            尚無帳號，請先建立
-          </p>
-        </Card>
-      ) : (
-        data.accounts.map((account) => (
-          <Card key={account.id} className="mb-2 flex items-center gap-2">
-            <button
-              type="button"
-              className="w-full text-left font-semibold text-arena-neon py-1"
-              onClick={() => {
-                loginAs(account.id);
-                router.push("/");
-              }}
-            >
-              {account.name}
-            </button>
-          </Card>
-        ))
-      )}
-
-      <p className="text-xs text-gray-600 mt-6">
-        登入為 <strong className="text-arena-purple">RINGO</strong>{" "}
-        後，可在「帳號」頁面刪除其他帳號。
+      <p className="text-xs text-gray-600">
+        管理員帳號 <strong className="text-arena-purple">RINGO</strong>{" "}
+        初始密碼為 <strong>99913579</strong>（可在 Vercel 以{" "}
+        <code className="text-arena-neon">RINGO_BOOTSTRAP_PASSWORD</code>{" "}
+        環境變數更改）。
       </p>
     </div>
   );

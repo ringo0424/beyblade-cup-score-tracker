@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Beyblade } from "@/types";
 import { BeybladeForm } from "./BeybladeForm";
 
 export function BeybladeTabPanel({
   beyblades,
   onChangeBeyblade,
+  onActiveIndexChange,
+  headerExtra,
 }: {
   beyblades: Beyblade[];
   onChangeBeyblade: (index: number, updated: Beyblade) => void;
+  onActiveIndexChange?: (index: number) => void;
+  headerExtra?: ReactNode;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const active = beyblades[activeIndex];
+
+  useEffect(() => {
+    onActiveIndexChange?.(activeIndex);
+  }, [activeIndex, onActiveIndexChange]);
 
   if (!active) return null;
 
@@ -49,6 +57,8 @@ export function BeybladeTabPanel({
           );
         })}
       </div>
+
+      {headerExtra}
 
       <div role="tabpanel">
         <BeybladeForm

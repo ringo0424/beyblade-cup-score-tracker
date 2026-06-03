@@ -3,10 +3,29 @@ import { STORAGE_KEY } from "./constants";
 import { generateId } from "./id";
 import { sampleAppData } from "./sampleData";
 
-const DATA_VERSION = 2;
+import { ensureRingoAccount } from "@/lib/auth/password";
+
+const DATA_VERSION = 3;
 
 function emptyData(): AppData {
-  return { eventDays: [], matches: [], accounts: [], version: DATA_VERSION };
+  return {
+    eventDays: [],
+    matches: [],
+    accounts: ensureRingoAccount([]),
+    libraries: [],
+    version: DATA_VERSION,
+  };
+}
+
+export function normalizeAppData(raw: Partial<AppData>): AppData {
+  const accounts = ensureRingoAccount(raw.accounts ?? []);
+  return {
+    eventDays: raw.eventDays ?? [],
+    matches: raw.matches ?? [],
+    accounts,
+    libraries: raw.libraries ?? [],
+    version: DATA_VERSION,
+  };
 }
 
 export function loadAppData(): AppData {
@@ -15,12 +34,7 @@ export function loadAppData(): AppData {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyData();
     const parsed = JSON.parse(raw) as Partial<AppData>;
-    return {
-      ...emptyData(),
-      ...parsed,
-      accounts: parsed.accounts ?? [],
-      version: DATA_VERSION,
-    };
+    return normalizeAppData(parsed);
   } catch {
     return emptyData();
   }

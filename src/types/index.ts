@@ -118,9 +118,54 @@ export interface Match {
   updatedAt: string;
 }
 
+export interface BeybladeStats {
+  attack: number;
+  defense: number;
+  stamina: number;
+  dash: number;
+  burst: number;
+  height: number;
+  weight: number;
+  total: number;
+}
+
+export interface LibraryPart {
+  id: string;
+  phstudyId: string;
+  category: string;
+  name: string;
+  partType?: string;
+}
+
+export interface LibraryBuild {
+  id: string;
+  nickname: string;
+  steelBlade: string;
+  lockDisk: string;
+  axis: string;
+  emblemLock: string;
+  mainBlade: string;
+  xtremeBlade: string;
+  metalBlade: string;
+  assistBlade: string;
+  notes: string;
+  catalogPartIds?: BeybladeCatalogPartIds;
+  stats: BeybladeStats;
+  typeLabel: string;
+  createdAt: string;
+}
+
+export interface UserLibrary {
+  accountId: string;
+  savedParts: LibraryPart[];
+  builds: LibraryBuild[];
+}
+
 export interface Account {
   id: string;
   name: string;
+  passwordHash: string;
+  isAdmin?: boolean;
   createdAt: string;
 }
 
@@ -136,5 +181,6 @@ export interface AppData {
   eventDays: EventDay[];
   matches: Match[];
   accounts: Account[];
+  libraries: UserLibrary[];
   version: number;
 }

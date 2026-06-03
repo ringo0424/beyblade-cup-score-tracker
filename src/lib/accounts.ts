@@ -1,6 +1,10 @@
 import type { Account, AppData, Match, Player } from "@/types";
 import { generateId } from "./id";
-import { getMatch } from "./storage";
+import { getMatch, upsertMatch } from "./storage";
+import {
+  createAccountWithPassword,
+  verifyPassword,
+} from "@/lib/auth/password";
 import {
   create1v1Pairing,
   generateRoundRobinPairings,
@@ -11,7 +15,10 @@ export const ADMIN_ACCOUNT_NAME = "RINGO";
 
 export function isAdminAccount(account: Account | null | undefined): boolean {
   if (!account) return false;
-  return account.name.trim().toUpperCase() === ADMIN_ACCOUNT_NAME;
+  return (
+    account.isAdmin === true ||
+    account.name.trim().toUpperCase() === ADMIN_ACCOUNT_NAME
+  );
 }
 
 export function normalizeAccountName(name: string): string {
@@ -35,22 +42,33 @@ export function findAccountByName(
   );
 }
 
-export function createAccountRecord(name: string): Account {
-  return {
-    id: generateId(),
-    name: normalizeAccountName(name),
-    createdAt: new Date().toISOString(),
-  };
-}
-
-export function addAccount(data: AppData, name: string): AppData {
+export function addAccount(
+  data: AppData,
+  name: string,
+  password: string
+): AppData {
   const normalized = normalizeAccountName(name);
-  if (!normalized) return data;
+  if (!normalized || !password.trim()) return data;
   if (findAccountByName(data, normalized)) return data;
   return {
     ...data,
-    accounts: [...data.accounts, createAccountRecord(normalized)],
+    accounts: [
+      ...data.accounts,
+      createAccountWithPassword(normalized, password),
+    ],
   };
+}
+
+export function authenticateAccount(
+  data: AppData,
+  name: string,
+  password: string
+): Account | null {
+  const account = findAccountByName(data, name);
+  if (!account || !verifyPassword(password, account.passwordHash)) {
+    return null;
+  }
+  return account;
 }
 
 export function removeAccount(data: AppData, accountId: string): AppData {
@@ -60,7 +78,8 @@ export function removeAccount(data: AppData, accountId: string): AppData {
     if (players.length === match.players.length) return match;
     return rebuildMatchPlayers(match, players);
   });
-  return { ...data, accounts, matches };
+  const libraries = data.libraries.filter((l) => l.accountId !== accountId);
+  return { ...data, accounts, matches, libraries };
 }
 
 function rebuildMatchPlayers(match: Match, players: Player[]): Match {
@@ -120,15 +139,7 @@ export function joinMatch(
   const players = [...match.players, player];
   const updated = rebuildMatchPlayers(match, players);
 
-  return upsertMatchInData(data, updated);
-}
-
-function upsertMatchInData(data: AppData, match: Match): AppData {
-  const exists = data.matches.some((m) => m.id === match.id);
-  const matches = exists
-    ? data.matches.map((m) => (m.id === match.id ? match : m))
-    : [...data.matches, match];
-  return { ...data, matches };
+  return upsertMatch(data, updated);
 }
 
 export function minPlayersForMatch(match: Match): number {

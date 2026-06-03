@@ -13,6 +13,7 @@ import {
 import { createDefaultSetup } from "@/lib/beyblade";
 import type { BeybladeSetup, Match } from "@/types";
 import { BeybladeTabPanel } from "@/components/beyblade/BeybladeTabPanel";
+import { libraryBuildToBeyblade } from "@/contexts/AppDataContext";
 import { BattleOrderList } from "@/components/beyblade/BattleOrderList";
 import { PartsCatalogBanner } from "@/components/beyblade/PartsCatalogBanner";
 import { PartsCatalogProvider } from "@/contexts/PartsCatalogContext";
@@ -32,8 +33,10 @@ export default function SetupPage({
     hydrated,
     currentAccount,
     joinMatchById,
+    userLibrary,
   } = useAppData();
   const [match, setMatch] = useState<Match | null>(null);
+  const [activeSlot, setActiveSlot] = useState(0);
 
   useEffect(() => {
     if (!hydrated || !currentAccount) return;
@@ -175,6 +178,39 @@ export default function SetupPage({
         <BeybladeTabPanel
           beyblades={setup.beyblades}
           onChangeBeyblade={updateBeyblade}
+          onActiveIndexChange={setActiveSlot}
+          headerExtra={
+            userLibrary.builds.length > 0 ? (
+              <div className="mb-4">
+                <label className="label-arena">
+                  從陀螺庫選擇（戰刃 {activeSlot + 1}）
+                </label>
+                <select
+                  className="input-arena"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const build = userLibrary.builds.find(
+                      (b) => b.id === e.target.value
+                    );
+                    if (build) {
+                      updateBeyblade(
+                        activeSlot,
+                        libraryBuildToBeyblade(build, activeSlot)
+                      );
+                    }
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">— 手動填寫 —</option>
+                  {userLibrary.builds.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nickname || "未命名"} ({b.typeLabel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null
+          }
         />
 
         <div className="flex flex-col gap-2 mt-6 sticky bottom-20 bg-arena-black/90 py-2 -mx-1 px-1">

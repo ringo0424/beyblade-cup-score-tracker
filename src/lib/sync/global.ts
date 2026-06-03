@@ -10,12 +10,16 @@ export interface GlobalStateRow {
   updated_at: string;
 }
 
-const EMPTY_PAYLOAD: AppData = {
+import { normalizeAppData } from "@/lib/storage";
+import { ensureRingoAccount } from "@/lib/auth/password";
+
+const EMPTY_PAYLOAD: AppData = normalizeAppData({
   eventDays: [],
   matches: [],
   accounts: [],
-  version: 2,
-};
+  libraries: [],
+  version: 3,
+});
 
 export async function fetchGlobalState(): Promise<
   { payload: AppData; revision: number } | { error: string }
@@ -50,14 +54,7 @@ export async function fetchGlobalState(): Promise<
 }
 
 function normalizePayload(raw: unknown): AppData {
-  const base = { ...EMPTY_PAYLOAD, ...(raw as Partial<AppData>) };
-  return {
-    ...base,
-    accounts: base.accounts ?? [],
-    matches: base.matches ?? [],
-    eventDays: base.eventDays ?? [],
-    version: 2,
-  };
+  return normalizeAppData(raw as Partial<AppData>);
 }
 
 export type PushGlobalResult =
