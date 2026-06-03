@@ -103,3 +103,10 @@ export function computeFighterStats(data: AppData): FighterStatRow[] {
     return a.displayName.localeCompare(b.displayName, "zh-Hant");
   });
 }
+
+export function getFighterIcon(
+  data: AppData,
+  nameKey: string
+): string | undefined {
+  return data.fighters?.find((f) => f.nameKey === nameKey)?.icon;
+}

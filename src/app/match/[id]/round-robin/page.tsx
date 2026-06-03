@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
