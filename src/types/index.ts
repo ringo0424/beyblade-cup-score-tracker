@@ -69,6 +69,8 @@ export interface BeybladeSetup {
 export interface Player {
   id: string;
   name: string;
+  /** Logged-in account that owns this slot */
+  accountId?: string;
 }
 
 export interface RoundResult {
@@ -110,8 +112,16 @@ export interface Match {
   status: MatchStatus;
   currentPairingIndex: number;
   winnerPlayerId: string | null;
+  /** Account that created the match */
+  hostAccountId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  createdAt: string;
 }
 
 export interface EventDay {
@@ -125,5 +135,6 @@ export interface EventDay {
 export interface AppData {
   eventDays: EventDay[];
   matches: Match[];
+  accounts: Account[];
   version: number;
 }

@@ -3,9 +3,11 @@ import type {
   PhstudyPartOption,
   PhstudyPartsCatalog,
   PhstudyPartsCatalogResponse,
+  PhstudyPartCategory,
   PhstudyRawPart,
 } from "./types";
 import { PHSTUDY_CATEGORY_SOURCES } from "./mapping";
+import { getPhstudyImagePaths } from "./images";
 
 const DEFAULT_LOCALE = "zh-TW";
 
@@ -29,16 +31,24 @@ function pickLocaleName(
   return stripHtml(raw);
 }
 
-function toPartOption(item: PhstudyRawPart, locale: string): PhstudyPartOption | null {
+function toPartOption(
+  item: PhstudyRawPart,
+  locale: string,
+  category: PhstudyPartCategory
+): PhstudyPartOption | null {
   if (!item?.id) return null;
   const name = pickLocaleName(item.name, locale);
   if (!name) return null;
   const catalogTitle = pickLocaleName(item.catalog_title, locale);
+  const images = getPhstudyImagePaths(category, item.id);
   return {
     id: item.id,
     name,
     catalogTitle: catalogTitle || undefined,
     type: item.type || undefined,
+    imageUrl: images.primary,
+    imageFallbackJpg: images.fallbackJpg,
+    imageFallbackApp: images.fallbackApp,
   };
 }
 
@@ -78,7 +88,7 @@ export function buildPartsCatalog(
     const items = Object.values(masterdata.data[key] || {});
     const options: PhstudyPartOption[] = [];
     for (const item of items) {
-      const opt = toPartOption(item, locale);
+      const opt = toPartOption(item, locale, category);
       if (opt) options.push(opt);
     }
     options.sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));

@@ -2,18 +2,32 @@
 
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
+import { openJoinableMatches } from "@/lib/accounts";
 import { getTodayMatches, getTodayDateString, formatDisplayDate } from "@/lib/storage";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 export default function HomePage() {
-  const { data, hydrated, loadSample, resetAll } = useAppData();
+  const {
+    data,
+    hydrated,
+    currentAccount,
+    syncStatus,
+    syncEnabled,
+    syncError,
+    joinMatchById,
+    loadSample,
+    resetAll,
+  } = useAppData();
   const today = getTodayDateString();
   const todayMatches = getTodayMatches(data);
   const inProgress = data.matches.filter((m) => m.status === "inProgress");
+  const joinable = currentAccount
+    ? openJoinableMatches(data, currentAccount.id)
+    : [];
 
-  if (!hydrated) {
+  if (!hydrated || !currentAccount) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-gray-500">
         載入中…
@@ -23,6 +37,44 @@ export default function HomePage() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-4 text-xs">
+        <Link href="/account" className="text-arena-neon hover:underline">
+          {currentAccount.name}
+        </Link>
+        {syncEnabled && (
+          <span
+            className={
+              syncStatus === "synced"
+                ? "text-arena-neon"
+                : syncStatus === "error"
+                  ? "text-red-400"
+                  : "text-gray-500"
+            }
+          >
+            {syncStatus === "synced" ? "全 App 同步中" : syncStatus}
+          </span>
+        )}
+      </div>
+      {syncError && (
+        <p className="text-xs text-amber-500 mb-3">{syncError}</p>
+      )}
+
+      {joinable.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-lg font-bold text-arena-purple mb-3">
+            可加入的比賽
+          </h2>
+          {joinable.map((m) => (
+            <MatchCard
+              key={m.id}
+              match={m}
+              accountId={currentAccount.id}
+              onJoin={joinMatchById}
+            />
+          ))}
+        </section>
+      )}
+
       <section className="mb-6">
         <h2 className="text-xl font-bold mb-1">今日賽事</h2>
         <p className="text-sm text-gray-500 mb-4">
@@ -38,7 +90,14 @@ export default function HomePage() {
             <p className="text-gray-500 text-center py-4">今日尚無比賽紀錄</p>
           </Card>
         ) : (
-          todayMatches.map((m) => <MatchCard key={m.id} match={m} />)
+          todayMatches.map((m) => (
+            <MatchCard
+              key={m.id}
+              match={m}
+              accountId={currentAccount.id}
+              onJoin={joinMatchById}
+            />
+          ))
         )}
       </section>
 
@@ -46,15 +105,16 @@ export default function HomePage() {
         <section className="mb-6">
           <h2 className="text-lg font-bold text-arena-neon mb-3">進行中</h2>
           {inProgress.map((m) => (
-            <MatchCard key={m.id} match={m} />
+            <MatchCard
+              key={m.id}
+              match={m}
+              accountId={currentAccount.id}
+            />
           ))}
         </section>
       )}
 
       <section className="mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-bold">快速連結</h2>
-        </div>
         <Link href="/history">
           <Button variant="secondary" fullWidth>
             查看全部比賽紀錄

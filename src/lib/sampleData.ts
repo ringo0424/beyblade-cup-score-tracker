@@ -38,7 +38,8 @@ sampleMatch.pairings[0].winnerPlayerId = playerA.id;
 sampleMatch.pairings[0].status = "completed";
 
 export const sampleAppData: AppData = {
-  version: 1,
+  version: 2,
+  accounts: [],
   eventDays: [
     {
       id: sampleMatch.eventDayId,

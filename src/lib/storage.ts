@@ -3,10 +3,10 @@ import { STORAGE_KEY } from "./constants";
 import { generateId } from "./id";
 import { sampleAppData } from "./sampleData";
 
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
 
 function emptyData(): AppData {
-  return { eventDays: [], matches: [], version: DATA_VERSION };
+  return { eventDays: [], matches: [], accounts: [], version: DATA_VERSION };
 }
 
 export function loadAppData(): AppData {
@@ -14,8 +14,13 @@ export function loadAppData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyData();
-    const parsed = JSON.parse(raw) as AppData;
-    return { ...emptyData(), ...parsed, version: DATA_VERSION };
+    const parsed = JSON.parse(raw) as Partial<AppData>;
+    return {
+      ...emptyData(),
+      ...parsed,
+      accounts: parsed.accounts ?? [],
+      version: DATA_VERSION,
+    };
   } catch {
     return emptyData();
   }

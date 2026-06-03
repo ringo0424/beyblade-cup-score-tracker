@@ -14,6 +14,9 @@ export interface PhstudyPartOption {
   name: string;
   catalogTitle?: string;
   type?: string;
+  imageUrl: string;
+  imageFallbackJpg?: string;
+  imageFallbackApp?: string;
 }
 
 export type PhstudyPartsCatalog = Record<

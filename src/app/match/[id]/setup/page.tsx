@@ -4,9 +4,15 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
 import { getMatch } from "@/lib/storage";
+import {
+  canJoinMatch,
+  getPlayerForAccount,
+  isJoinedMatch,
+  minPlayersForMatch,
+} from "@/lib/accounts";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type { BeybladeSetup, Match } from "@/types";
-import { BeybladeForm } from "@/components/beyblade/BeybladeForm";
+import { BeybladeAccordion } from "@/components/beyblade/BeybladeAccordion";
 import { BattleOrderList } from "@/components/beyblade/BattleOrderList";
 import { PartsCatalogBanner } from "@/components/beyblade/PartsCatalogBanner";
 import { PartsCatalogProvider } from "@/contexts/PartsCatalogContext";
@@ -20,17 +26,23 @@ export default function SetupPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data, saveMatch, hydrated } = useAppData();
+  const {
+    data,
+    saveMatch,
+    hydrated,
+    currentAccount,
+    joinMatchById,
+  } = useAppData();
   const [match, setMatch] = useState<Match | null>(null);
-  const [activePlayerIndex, setActivePlayerIndex] = useState(0);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !currentAccount) return;
     const m = getMatch(data, id);
     if (!m) {
       router.replace("/");
       return;
     }
+
     let setups = m.beybladeSetups;
     if (setups.length !== m.players.length) {
       setups = m.players.map(
@@ -39,15 +51,65 @@ export default function SetupPage({
       );
     }
     setMatch({ ...m, beybladeSetups: setups });
-  }, [data, id, hydrated, router]);
+  }, [currentAccount, data, id, hydrated, router]);
 
-  if (!match) {
+  if (!match || !currentAccount) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
   }
 
-  const player = match.players[activePlayerIndex];
+  const joined = isJoinedMatch(match, currentAccount.id);
+  const myPlayer = getPlayerForAccount(match, currentAccount.id);
+  const canJoin = canJoinMatch(match, currentAccount.id);
+  const isHost = match.hostAccountId === currentAccount.id;
+  const minPlayers = minPlayersForMatch(match);
+
+  if (!joined && canJoin) {
+    return (
+      <div>
+        <h2 className="text-xl font-bold mb-2">{match.name}</h2>
+        <Card className="mb-4">
+          <p className="text-gray-400 mb-4">
+            你已登入為 {currentAccount.name}，加入後可填寫自己的 3 組陀螺。
+          </p>
+          <Button
+            fullWidth
+            onClick={() => {
+              joinMatchById(match.id);
+            }}
+          >
+            加入這場比賽
+          </Button>
+        </Card>
+        <Button variant="secondary" fullWidth onClick={() => router.push("/")}>
+          返回首頁
+        </Button>
+      </div>
+    );
+  }
+
+  if (!joined) {
+    return (
+      <div>
+        <h2 className="text-xl font-bold mb-2">{match.name}</h2>
+        <Card>
+          <p className="text-gray-500 text-center py-4">
+            這場比賽已滿或未開放加入
+          </p>
+        </Card>
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mt-4"
+          onClick={() => router.push("/")}
+        >
+          返回首頁
+        </Button>
+      </div>
+    );
+  }
+
   const setupIndex = match.beybladeSetups.findIndex(
-    (s) => s.playerId === player.id
+    (s) => s.playerId === myPlayer!.id
   );
   const setup = match.beybladeSetups[setupIndex];
 
@@ -57,7 +119,10 @@ export default function SetupPage({
     setMatch({ ...match, beybladeSetups: setups });
   };
 
-  const updateBeyblade = (bIndex: number, updated: BeybladeSetup["beyblades"][0]) => {
+  const updateBeyblade = (
+    bIndex: number,
+    updated: BeybladeSetup["beyblades"][0]
+  ) => {
     const beyblades = [...setup.beyblades];
     beyblades[bIndex] = updated;
     updateSetup({ ...setup, beyblades });
@@ -68,9 +133,9 @@ export default function SetupPage({
   };
 
   const startMatch = () => {
+    if (match.players.length < minPlayers) return;
     const updated: Match = {
       ...match,
-      beybladeSetups: match.beybladeSetups,
       status: "inProgress",
       updatedAt: new Date().toISOString(),
     };
@@ -84,69 +149,54 @@ export default function SetupPage({
 
   return (
     <PartsCatalogProvider>
-    <div>
-      <h2 className="text-xl font-bold mb-1">{match.name}</h2>
-      <p className="text-sm text-gray-500 mb-4">戰刃設定 — 每位選手 3 組</p>
+      <div>
+        <h2 className="text-xl font-bold mb-1">{match.name}</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          填寫你的陀螺（{currentAccount.name}）
+        </p>
 
-      <PartsCatalogBanner />
+        <PartsCatalogBanner />
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-        {match.players.map((p, i) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setActivePlayerIndex(i)}
-            className={`shrink-0 px-4 py-2 rounded-xl border text-sm font-medium ${
-              i === activePlayerIndex
-                ? "border-arena-neon bg-arena-neon/15 text-arena-neon"
-                : "border-arena-border text-gray-400"
-            }`}
-          >
-            {p.name}
-          </button>
+        <Card className="mb-4">
+          <p className="text-xs text-gray-500 mb-2">已加入選手</p>
+          <p className="text-sm text-gray-300">
+            {match.players.map((p) => p.name).join(" · ")}
+          </p>
+          <p className="text-xs text-gray-600 mt-2">
+            {match.players.length} / {minPlayers} 人（最少需 {minPlayers} 人才能開始）
+          </p>
+        </Card>
+
+        <Card className="mb-4" glow>
+          <h3 className="font-bold text-arena-purple mb-3">我的出戰順序</h3>
+          <BattleOrderList setup={setup} onChange={updateSetup} />
+        </Card>
+
+        {setup.beyblades.map((b, i) => (
+          <BeybladeAccordion
+            key={b.id}
+            beyblade={b}
+            index={i}
+            onChange={(updated) => updateBeyblade(i, updated)}
+          />
         ))}
+
+        <div className="flex flex-col gap-2 mt-6 sticky bottom-20 bg-arena-black/90 py-2 -mx-1 px-1">
+          <Button fullWidth onClick={saveSetups}>
+            儲存我的陀螺資料
+          </Button>
+          {isHost && match.players.length >= minPlayers && (
+            <Button fullWidth variant="secondary" onClick={startMatch}>
+              開始比賽
+            </Button>
+          )}
+          {isHost && match.players.length < minPlayers && (
+            <p className="text-xs text-center text-gray-600">
+              等待更多選手加入…
+            </p>
+          )}
+        </div>
       </div>
-
-      <Card className="mb-4" glow>
-        <h3 className="font-bold text-arena-purple mb-3">{player.name}</h3>
-        <BattleOrderList setup={setup} onChange={updateSetup} />
-      </Card>
-
-      {setup.beyblades.map((b, i) => (
-        <BeybladeForm
-          key={b.id}
-          beyblade={b}
-          index={i}
-          onChange={(updated) => updateBeyblade(i, updated)}
-        />
-      ))}
-
-      <div className="flex gap-2 mt-6 sticky bottom-20 bg-arena-black/90 py-2 -mx-1 px-1">
-        {activePlayerIndex > 0 && (
-          <Button
-            variant="secondary"
-            onClick={() => setActivePlayerIndex(activePlayerIndex - 1)}
-          >
-            上一位
-          </Button>
-        )}
-        {activePlayerIndex < match.players.length - 1 ? (
-          <Button
-            fullWidth
-            onClick={() => {
-              saveSetups();
-              setActivePlayerIndex(activePlayerIndex + 1);
-            }}
-          >
-            下一位選手
-          </Button>
-        ) : (
-          <Button fullWidth onClick={startMatch}>
-            開始比賽
-          </Button>
-        )}
-      </div>
-    </div>
     </PartsCatalogProvider>
   );
 }

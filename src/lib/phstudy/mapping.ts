@@ -63,6 +63,7 @@ export const CATALOG_ID_FIELD_MAP: Record<
 export const PHSTUDY_DATA_BASE = "https://beyblade.phstudy.org/data";
 export const PHSTUDY_VIEWER_URL = "https://beyblade.phstudy.org/index.html";
 
+/** Open a specific part in phstudy viewer (modal deep link). */
 export function phstudyPartUrl(
   partId: string,
   category: PhstudyPartCategory
@@ -71,5 +72,11 @@ export function phstudyPartUrl(
     part: partId,
     cat: category,
   });
+  return `${PHSTUDY_VIEWER_URL}?${params.toString()}`;
+}
+
+/** Browse a part category in phstudy (same as index.html?category=Blade). */
+export function phstudyCategoryUrl(category: PhstudyPartCategory): string {
+  const params = new URLSearchParams({ category });
   return `${PHSTUDY_VIEWER_URL}?${params.toString()}`;
 }

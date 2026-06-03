@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
+import { AppDataProvider } from "@/contexts/AppDataContext";
+import { AccountGate } from "@/components/auth/AccountGate";
 
 const navItems = [
   { href: "/", label: "首頁", icon: "🏠" },
@@ -18,7 +20,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.includes("/round-robin");
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+    <AppDataProvider>
+      <AccountGate>
+      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       <header className="sticky top-0 z-40 bg-arena-black/90 backdrop-blur border-b border-arena-border px-4 py-3">
         <Link href="/" className="block">
           <h1 className="text-lg font-bold bg-gradient-to-r from-arena-neon to-arena-purple bg-clip-text text-transparent">
@@ -57,6 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
       )}
-    </div>
+      </div>
+      </AccountGate>
+    </AppDataProvider>
   );
 }

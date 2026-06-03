@@ -25,10 +25,12 @@ export function BeybladeForm({
   beyblade,
   index,
   onChange,
+  embedded = false,
 }: {
   beyblade: Beyblade;
   index: number;
   onChange: (updated: Beyblade) => void;
+  embedded?: boolean;
 }) {
   const { catalog, loading } = usePartsCatalogContext();
 
@@ -45,9 +47,11 @@ export function BeybladeForm({
     });
   };
 
-  return (
-    <div className="card-arena mb-3">
-      <h4 className="font-semibold text-arena-neon mb-3">戰刃 {index + 1}</h4>
+  const inner = (
+    <>
+      {!embedded && (
+        <h4 className="font-semibold text-arena-neon mb-3">戰刃 {index + 1}</h4>
+      )}
 
       <div className="space-y-3">
         <div>
@@ -91,7 +95,10 @@ export function BeybladeForm({
           />
         </div>
       </div>
-
-    </div>
+    </>
   );
+
+  if (embedded) return inner;
+
+  return <div className="card-arena mb-3">{inner}</div>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
 import {
@@ -10,10 +10,6 @@ import {
 } from "@/lib/constants";
 import { generateId } from "@/lib/id";
 import { generateMatchName } from "@/lib/matchName";
-import {
-  create1v1Pairing,
-  generateRoundRobinPairings,
-} from "@/lib/pairings";
 import { getTodayDateString } from "@/lib/storage";
 import type { Match, MatchType, Player, ScoreTarget } from "@/types";
 import { Button } from "@/components/ui/Button";
@@ -21,64 +17,30 @@ import { Card } from "@/components/ui/Card";
 
 export default function CreateMatchPage() {
   const router = useRouter();
-  const { data, saveMatch } = useAppData();
+  const { data, saveMatch, currentAccount } = useAppData();
 
   const [date, setDate] = useState(getTodayDateString());
   const [time, setTime] = useState("4:00 PM");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [scoreTarget, setScoreTarget] = useState<ScoreTarget>(4);
   const [matchType, setMatchType] = useState<MatchType>("1v1");
-  const [playerNames, setPlayerNames] = useState(["", ""]);
 
   const autoName = useMemo(
     () => generateMatchName(time, location, data.matches),
     [time, location, data.matches]
   );
 
-  useEffect(() => {
-    if (matchType === "1v1" && playerNames.length !== 2) {
-      setPlayerNames((prev) => {
-        if (prev.length === 2) return prev;
-        return prev.length < 2
-          ? [...prev, ...Array(2 - prev.length).fill("")]
-          : prev.slice(0, 2);
-      });
-    }
-  }, [matchType, playerNames.length]);
-
-  const addPlayer = () => {
-    if (playerNames.length < 8) setPlayerNames([...playerNames, ""]);
-  };
-
-  const removePlayer = (i: number) => {
-    if (matchType === "1v1" || playerNames.length <= 3) return;
-    setPlayerNames(playerNames.filter((_, idx) => idx !== i));
-  };
-
-  const updatePlayer = (i: number, name: string) => {
-    const next = [...playerNames];
-    next[i] = name;
-    setPlayerNames(next);
-  };
-
-  const minPlayers = matchType === "1v1" ? 2 : 3;
   const canSubmit =
-    playerNames.filter((n) => n.trim()).length >= minPlayers &&
-    time.trim() &&
-    location.trim();
+    Boolean(currentAccount) && time.trim() && location.trim();
 
   const handleSubmit = () => {
-    const players: Player[] = playerNames
-      .map((n) => n.trim())
-      .filter(Boolean)
-      .map((name) => ({ id: generateId(), name }));
+    if (!currentAccount) return;
 
-    if (players.length < minPlayers) return;
-
-    const pairings =
-      matchType === "1v1"
-        ? create1v1Pairing(players[0].id, players[1].id)
-        : generateRoundRobinPairings(players);
+    const hostPlayer: Player = {
+      id: generateId(),
+      name: currentAccount.name,
+      accountId: currentAccount.id,
+    };
 
     const match: Match = {
       id: generateId(),
@@ -89,13 +51,14 @@ export default function CreateMatchPage() {
       location,
       scoreTarget,
       matchType,
-      players,
+      players: [hostPlayer],
       beybladeSetups: [],
-      pairings,
+      pairings: [],
       rounds: [],
       status: "setup",
       currentPairingIndex: 0,
       winnerPlayerId: null,
+      hostAccountId: currentAccount.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -107,6 +70,9 @@ export default function CreateMatchPage() {
   return (
     <div>
       <h2 className="text-xl font-bold mb-4">建立新比賽</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        建立後你會自動加入；其他人可在首頁看見並加入，再各自填陀螺資料。
+      </p>
 
       <Card className="mb-4">
         <label className="label-arena">日期</label>
@@ -173,15 +139,12 @@ export default function CreateMatchPage() {
         </div>
       </Card>
 
-      <Card className="mb-4">
+      <Card className="mb-6">
         <label className="label-arena">比賽類型</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => {
-              setMatchType("1v1");
-              setPlayerNames(["", ""]);
-            }}
+            onClick={() => setMatchType("1v1")}
             className={`py-3 rounded-xl border ${
               matchType === "1v1"
                 ? "border-arena-neon bg-arena-neon/15 text-arena-neon"
@@ -204,41 +167,16 @@ export default function CreateMatchPage() {
         </div>
         {matchType === "roundRobin" && (
           <p className="text-xs text-gray-500 mt-2">
-            每位選手兩兩對戰，總分最高者獲勝（非三人同場）
+            至少 3 人加入後可開始；每人各自填 3 組陀螺。
           </p>
         )}
-      </Card>
-
-      <Card className="mb-6">
-        <label className="label-arena">選手</label>
-        {playerNames.map((name, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <input
-              className="input-arena flex-1"
-              placeholder={`選手 ${i + 1}`}
-              value={name}
-              onChange={(e) => updatePlayer(i, e.target.value)}
-            />
-            {matchType === "roundRobin" && playerNames.length > 3 && (
-              <button
-                type="button"
-                className="px-3 text-red-400"
-                onClick={() => removePlayer(i)}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
-        {matchType === "roundRobin" && playerNames.length < 8 && (
-          <Button variant="secondary" fullWidth onClick={addPlayer}>
-            ＋ 新增選手
-          </Button>
+        {matchType === "1v1" && (
+          <p className="text-xs text-gray-500 mt-2">需 2 人加入後可開始。</p>
         )}
       </Card>
 
       <Button fullWidth disabled={!canSubmit} onClick={handleSubmit}>
-        下一步：戰刃設定
+        建立並填寫我的陀螺
       </Button>
     </div>
   );
