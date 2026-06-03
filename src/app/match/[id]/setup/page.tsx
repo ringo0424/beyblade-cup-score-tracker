@@ -12,7 +12,7 @@ import {
 } from "@/lib/accounts";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type { BeybladeSetup, Match } from "@/types";
-import { BeybladeAccordion } from "@/components/beyblade/BeybladeAccordion";
+import { BeybladeTabPanel } from "@/components/beyblade/BeybladeTabPanel";
 import { BattleOrderList } from "@/components/beyblade/BattleOrderList";
 import { PartsCatalogBanner } from "@/components/beyblade/PartsCatalogBanner";
 import { PartsCatalogProvider } from "@/contexts/PartsCatalogContext";
@@ -172,14 +172,10 @@ export default function SetupPage({
           <BattleOrderList setup={setup} onChange={updateSetup} />
         </Card>
 
-        {setup.beyblades.map((b, i) => (
-          <BeybladeAccordion
-            key={b.id}
-            beyblade={b}
-            index={i}
-            onChange={(updated) => updateBeyblade(i, updated)}
-          />
-        ))}
+        <BeybladeTabPanel
+          beyblades={setup.beyblades}
+          onChangeBeyblade={updateBeyblade}
+        />
 
         <div className="flex flex-col gap-2 mt-6 sticky bottom-20 bg-arena-black/90 py-2 -mx-1 px-1">
           <Button fullWidth onClick={saveSetups}>
