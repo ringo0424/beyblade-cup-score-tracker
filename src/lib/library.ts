@@ -102,20 +102,22 @@ export function removeLibraryBuild(
 
 export function libraryBuildToBeyblade(
   build: LibraryBuild,
-  slotIndex: number
+  slotIndex: number,
+  /** 保留既有 id，避免出戰順序 battleOrder 仍指向舊 id 而崩潰 */
+  existingBeybladeId?: string
 ): Beyblade {
   return {
-    id: generateId(),
+    id: existingBeybladeId ?? generateId(),
     nickname: build.nickname || `戰刃 ${slotIndex + 1}`,
-    steelBlade: build.steelBlade,
-    lockDisk: build.lockDisk,
-    axis: build.axis,
-    emblemLock: build.emblemLock,
-    mainBlade: build.mainBlade,
-    xtremeBlade: build.xtremeBlade,
-    metalBlade: build.metalBlade,
-    assistBlade: build.assistBlade,
-    notes: build.notes,
+    steelBlade: build.steelBlade ?? "",
+    lockDisk: build.lockDisk ?? "",
+    axis: build.axis ?? "",
+    emblemLock: build.emblemLock ?? "",
+    mainBlade: build.mainBlade ?? "",
+    xtremeBlade: build.xtremeBlade ?? "",
+    metalBlade: build.metalBlade ?? "",
+    assistBlade: build.assistBlade ?? "",
+    notes: build.notes ?? "",
     catalogPartIds: build.catalogPartIds,
   };
 }

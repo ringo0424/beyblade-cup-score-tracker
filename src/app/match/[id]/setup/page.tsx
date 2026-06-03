@@ -213,7 +213,11 @@ export default function SetupPage({
                     if (build) {
                       updateBeyblade(
                         activeSlot,
-                        libraryBuildToBeyblade(build, activeSlot)
+                        libraryBuildToBeyblade(
+                          build,
+                          activeSlot,
+                          setup.beyblades[activeSlot]?.id
+                        )
                       );
                     }
                     e.target.value = "";

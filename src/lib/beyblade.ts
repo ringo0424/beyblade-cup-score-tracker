@@ -39,7 +39,9 @@ export function reorderBattleOrder(
 }
 
 export function getOrderedBeyblades(setup: BeybladeSetup): Beyblade[] {
-  return setup.battleOrder.map(
-    (id) => setup.beyblades.find((b) => b.id === id)!
-  );
+  const ordered = setup.battleOrder
+    .map((id) => setup.beyblades.find((b) => b.id === id))
+    .filter((b): b is Beyblade => b != null);
+  if (ordered.length === setup.beyblades.length) return ordered;
+  return setup.beyblades;
 }

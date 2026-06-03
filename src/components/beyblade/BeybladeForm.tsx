@@ -36,7 +36,7 @@ export function BeybladeForm({
 
   const setPartField = (field: BeybladePartField, name: string, id?: string) => {
     const idField = CATALOG_ID_FIELD_MAP[field];
-    const catalogPartIds = { ...beyblade.catalogPartIds };
+    const catalogPartIds = { ...(beyblade.catalogPartIds ?? {}) };
     if (id) catalogPartIds[idField] = id;
     else delete catalogPartIds[idField];
     onChange({

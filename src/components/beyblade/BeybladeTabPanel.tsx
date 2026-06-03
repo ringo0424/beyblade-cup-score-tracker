@@ -33,7 +33,7 @@ export function BeybladeTabPanel({
       >
         {beyblades.map((b, i) => {
           const selected = i === activeIndex;
-          const subtitle = b.nickname.trim();
+          const subtitle = (b.nickname ?? "").trim();
           return (
             <button
               key={b.id}
