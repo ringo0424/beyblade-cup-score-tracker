@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
 import { getMatch } from "@/lib/storage";
+import { applyCelebrationPhotos } from "@/lib/matchPhotos";
 import {
   applyScoreRound,
   undoLastRound,
@@ -70,6 +71,7 @@ export default function RoundRobinPage({
         match={match}
         data={data}
         toxicQuotesEnabled={toxicQuotesEnabled}
+        onPhotosChange={(photos) => persist(applyCelebrationPhotos(match, photos))}
         onHome={() => router.push("/")}
       >
         <h3 className="text-sm font-semibold text-gray-500 mb-2 mt-4">

@@ -9,6 +9,8 @@ import {
   isJoinedMatch,
   minPlayersForMatch,
 } from "@/lib/accounts";
+import { hasCelebrationPhotos } from "@/lib/matchPhotos";
+import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationBackground";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
@@ -56,8 +58,10 @@ export function MatchCard({
 
   const minP = minPlayersForMatch(match);
 
-  const content = (
-    <Card className={`mb-3 ${href ? "hover:border-arena-neon/40 transition-colors" : ""}`}>
+  const withBg = hasCelebrationPhotos(match.celebrationPhotos);
+
+  const inner = (
+    <>
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="font-bold text-arena-neon">{match.name}</h3>
@@ -143,6 +147,20 @@ export function MatchCard({
           填寫陀螺資料
         </Button>
       )}
+    </>
+  );
+
+  const content = (
+    <Card
+      className={`mb-3 overflow-hidden p-0 ${href ? "hover:border-arena-neon/40 transition-colors" : ""}`}
+    >
+      <MatchCelebrationBackground
+        photos={withBg ? match.celebrationPhotos : undefined}
+        className="p-4"
+        overlayClassName="bg-arena-black/70"
+      >
+        {inner}
+      </MatchCelebrationBackground>
     </Card>
   );
 

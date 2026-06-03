@@ -41,6 +41,12 @@ import { setFighterIcon as setFighterIconAction } from "@/lib/fighters/profiles"
 import type { PhstudyPartCategory } from "@/lib/phstudy/types";
 import { isSyncConfigured } from "@/lib/sync/supabase";
 import {
+  attachLocalPhotos,
+  stripPhotosForCloudSync,
+  syncPhotoMapFromAppData,
+} from "@/lib/matchPhotosStorage";
+import { appDataChanged, mergeAppData } from "@/lib/sync/mergeAppData";
+import {
   fetchGlobalState,
   pushGlobalState,
   subscribeGlobalState,
@@ -95,9 +101,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const revisionRef = useRef(0);
   const applyingRemoteRef = useRef(false);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dataRef = useRef<AppData | null>(null);
 
   const syncEnabled = isSyncConfigured();
   const dataOrEmpty = data ?? normalizeAppData({});
+  dataRef.current = data;
   const currentAccount = currentAccountId
     ? findAccountById(dataOrEmpty, currentAccountId) ?? null
     : null;
@@ -108,7 +116,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     : { accountId: "", savedParts: [], builds: [] };
 
   const persistLocal = useCallback((next: AppData) => {
-    const normalized = normalizeAppData(next);
+    const normalized = attachLocalPhotos(normalizeAppData(next));
+    syncPhotoMapFromAppData(normalized);
     setDataState(normalized);
     saveAppData(normalized);
   }, []);
@@ -118,7 +127,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (!syncEnabled || applyingRemoteRef.current) return;
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(async () => {
-        const result = await pushGlobalState(next, revisionRef.current);
+        const cloudPayload = stripPhotosForCloudSync(next);
+        const result = await pushGlobalState(cloudPayload, revisionRef.current);
         if (result.ok) {
           revisionRef.current = result.revision;
           setSyncStatus("synced");
@@ -126,9 +136,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         } else if ("conflict" in result && result.conflict) {
           applyingRemoteRef.current = true;
           revisionRef.current = result.revision;
-          persistLocal(result.payload);
+          const localNow = attachLocalPhotos(normalizeAppData(next));
+          const merged = mergeAppData(localNow, result.payload);
+          persistLocal(merged);
           applyingRemoteRef.current = false;
-          setSyncError("其他人剛更新，已同步最新資料");
+          setSyncError("已與雲端合併最新資料（保留本機較新紀錄）");
+          if (appDataChanged(merged, result.payload)) {
+            scheduleCloudPush(merged);
+          }
         } else if (!result.ok && "error" in result) {
           setSyncStatus("error");
           setSyncError(result.error);
@@ -151,8 +166,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const local = loadAppData();
+    const local = attachLocalPhotos(loadAppData());
     setDataState(local);
+    syncPhotoMapFromAppData(local);
     setCurrentAccountId(readStoredAccountId());
     setHydrated(true);
 
@@ -167,11 +183,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       applyingRemoteRef.current = true;
       revisionRef.current = result.revision;
-      persistLocal(result.payload);
+      const remote = attachLocalPhotos(result.payload);
+      const merged = mergeAppData(local, remote);
+      persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
+      if (
+        appDataChanged(
+          stripPhotosForCloudSync(merged),
+          stripPhotosForCloudSync(remote)
+        )
+      ) {
+        scheduleCloudPush(merged);
+      }
     });
-  }, [persistLocal, syncEnabled]);
+  }, [persistLocal, scheduleCloudPush, syncEnabled]);
 
   useEffect(() => {
     if (!syncEnabled) return;
@@ -179,7 +205,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (revision <= revisionRef.current) return;
       applyingRemoteRef.current = true;
       revisionRef.current = revision;
-      persistLocal(payload);
+      const local = attachLocalPhotos(
+        dataRef.current ?? loadAppData()
+      );
+      const remote = attachLocalPhotos(normalizeAppData(payload));
+      persistLocal(mergeAppData(local, remote));
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
     });

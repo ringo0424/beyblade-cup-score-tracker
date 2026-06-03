@@ -18,7 +18,9 @@ const EMPTY_PAYLOAD: AppData = normalizeAppData({
   matches: [],
   accounts: [],
   libraries: [],
-  version: 3,
+  fighters: [],
+  settings: {},
+  version: 4,
 });
 
 export async function fetchGlobalState(): Promise<

@@ -85,6 +85,13 @@ export interface RoundResult {
   createdAt: string;
 }
 
+/** 比賽結束後冠軍／亞軍紀念照（JPEG data URL，用於背景） */
+export interface MatchCelebrationPhotos {
+  champion?: string;
+  runnerUp?: string;
+  updatedAt?: string;
+}
+
 export interface BattlePairing {
   id: string;
   playerAId: string;
@@ -114,6 +121,8 @@ export interface Match {
   winnerPlayerId: string | null;
   /** Account that created the match */
   hostAccountId?: string;
+  /** 冠軍／亞軍紀念照，作為比賽背景 */
+  celebrationPhotos?: MatchCelebrationPhotos;
   createdAt: string;
   updatedAt: string;
 }

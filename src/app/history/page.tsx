@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
 import { formatDisplayDate } from "@/lib/storage";
 import type { Match } from "@/types";
+import { hasCelebrationPhotos } from "@/lib/matchPhotos";
+import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationBackground";
 import { Card } from "@/components/ui/Card";
 
 export default function HistoryPage() {
@@ -112,33 +114,47 @@ function HistoryRow({
     onDelete(match.id);
   };
 
-  return (
-    <Card className="mb-3 hover:border-arena-purple/40 transition-colors">
-      <div className="flex items-start justify-between gap-2">
-        <Link href={href} className="min-w-0 flex-1">
-          <h3 className="font-bold text-arena-neon">{match.name}</h3>
-          <p className="text-sm text-gray-400 mt-1">
-            {formatDisplayDate(match.date)} · {match.time} · {match.location}
+  const rowInner = (
+    <div className="flex items-start justify-between gap-2">
+      <Link href={href} className="min-w-0 flex-1">
+        <h3 className="font-bold text-arena-neon">{match.name}</h3>
+        <p className="text-sm text-gray-400 mt-1">
+          {formatDisplayDate(match.date)} · {match.time} · {match.location}
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          {typeLabel} · {match.players.map((p) => p.name).join(", ")}
+        </p>
+        {winner && (
+          <p className="text-sm text-arena-purple mt-2 font-medium">
+            冠軍：{winner.name}
           </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {typeLabel} · {match.players.map((p) => p.name).join(", ")}
-          </p>
-          {winner && (
-            <p className="text-sm text-arena-purple mt-2 font-medium">
-              冠軍：{winner.name}
-            </p>
-          )}
-        </Link>
-        {canDelete && onDelete && (
-          <button
-            type="button"
-            className="text-sm text-red-400 shrink-0 px-2 py-1"
-            onClick={handleDelete}
-          >
-            刪除
-          </button>
         )}
-      </div>
+      </Link>
+      {canDelete && onDelete && (
+        <button
+          type="button"
+          className="text-sm text-red-400 shrink-0 px-2 py-1"
+          onClick={handleDelete}
+        >
+          刪除
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <Card className="mb-3 overflow-hidden p-0 hover:border-arena-purple/40 transition-colors">
+      <MatchCelebrationBackground
+        photos={
+          hasCelebrationPhotos(match.celebrationPhotos)
+            ? match.celebrationPhotos
+            : undefined
+        }
+        className="p-4"
+        overlayClassName="bg-arena-black/70"
+      >
+        {rowInner}
+      </MatchCelebrationBackground>
     </Card>
   );
 }

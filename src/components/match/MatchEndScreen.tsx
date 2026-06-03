@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import type { Match } from "@/types";
+import type { Match, MatchCelebrationPhotos } from "@/types";
 import { pickMatchEndQuote } from "@/lib/quotes/pickQuote";
 import {
   getChampionPlayer,
@@ -12,6 +12,8 @@ import { fighterNameKey } from "@/lib/fighters/keys";
 import type { AppData } from "@/types";
 import { Leaderboard } from "@/components/match/Leaderboard";
 import { getLeaderboard } from "@/lib/scoring";
+import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationBackground";
+import { MatchPhotoCapture } from "@/components/match/MatchPhotoCapture";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
@@ -20,12 +22,14 @@ export function MatchEndScreen({
   data,
   toxicQuotesEnabled,
   onHome,
+  onPhotosChange,
   children,
 }: {
   match: Match;
   data: AppData;
   toxicQuotesEnabled?: boolean;
   onHome: () => void;
+  onPhotosChange: (photos: MatchCelebrationPhotos) => void;
   children?: ReactNode;
 }) {
   const quote = useMemo(
@@ -50,20 +54,39 @@ export function MatchEndScreen({
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-arena-neon mb-2">{match.name}</h2>
-      <Card glow className="text-center py-6 mb-4">
-        <p className="text-sm text-gray-500">比賽結束</p>
-        <p className="text-2xl font-bold text-arena-purple mt-2">
-          {championIcon && <span className="mr-1">{championIcon}</span>}
-          冠軍：{champion?.name ?? "—"}
-        </p>
-        {runnerUp && (
-          <p className="text-sm text-gray-400 mt-2">
-            {runnerIcon && <span className="mr-1">{runnerIcon}</span>}
-            亞軍：{runnerUp.name}
-          </p>
-        )}
-      </Card>
+      <MatchCelebrationBackground
+        photos={match.celebrationPhotos}
+        className="rounded-2xl mb-4 -mx-1"
+        overlayClassName="bg-gradient-to-b from-arena-black/60 via-arena-black/80 to-arena-black/95"
+      >
+        <div className="px-3 pt-4 pb-5">
+          <h2 className="text-xl font-bold text-arena-neon mb-2 drop-shadow">
+            {match.name}
+          </h2>
+          <Card glow className="text-center py-6 mb-0 bg-arena-card/80 backdrop-blur-sm">
+            <p className="text-sm text-gray-500">比賽結束</p>
+            <p className="text-2xl font-bold text-arena-purple mt-2">
+              {championIcon && <span className="mr-1">{championIcon}</span>}
+              冠軍：{champion?.name ?? "—"}
+            </p>
+            {runnerUp && (
+              <p className="text-sm text-gray-400 mt-2">
+                {runnerIcon && <span className="mr-1">{runnerIcon}</span>}
+                亞軍：{runnerUp.name}
+              </p>
+            )}
+          </Card>
+        </div>
+      </MatchCelebrationBackground>
+
+      {champion && (
+        <MatchPhotoCapture
+          championName={champion.name}
+          runnerUpName={runnerUp?.name}
+          photos={match.celebrationPhotos}
+          onChange={onPhotosChange}
+        />
+      )}
 
       <Card className="mb-4 border-arena-purple/40 bg-arena-purple/5">
         <p className="text-xs text-arena-purple mb-1">賽後評語</p>
