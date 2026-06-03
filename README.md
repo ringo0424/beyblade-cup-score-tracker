@@ -41,9 +41,22 @@ src/
   types/               # TypeScript 資料模型
 ```
 
-## 資料儲存
+## 資料儲存與多人同步
 
-所有資料保存在瀏覽器 `localStorage`，鍵名：`beyblade-cup-score-tracker-v1`。
+- **未設定 Supabase**：資料僅存在各使用者瀏覽器 `localStorage`（鍵名 `beyblade-cup-score-tracker-v1`），無法與他人同步。
+- **已設定 Supabase**：全 App 共用雲端單表 `app_global`，支援即時同步與「重新同步」合併。
+
+### 設定 Supabase（部署必做）
+
+1. [Supabase](https://supabase.com/dashboard) 建立專案，在 SQL Editor 執行 `supabase/schema.sql`。
+2. Project Settings → API，複製 **Project URL** 與 **anon public** key。
+3. [Vercel](https://vercel.com/dashboard) 本專案 → **Settings → Environment Variables**：
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - 選填 `RINGO_BOOTSTRAP_PASSWORD`（管理員初始密碼，勿寫進前端畫面）
+4. **Redeploy** 後請所有使用者重新整理；首頁應顯示「雲端同步」而非橘色未設定提示。
+
+本機：複製 `.env.example` 為 `.env.local` 填入上述變數，再執行 `npm run dev`。
 
 ## 零件資料（phstudy）
 

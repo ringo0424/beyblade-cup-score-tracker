@@ -68,7 +68,18 @@ export default function AccountPage() {
                   <button
                     type="button"
                     className="text-sm text-red-400 shrink-0"
-                    onClick={() => removeMatchById(m.id)}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          `確定刪除比賽「${m.name}」？此動作無法復原，並會同步到雲端。`
+                        )
+                      ) {
+                        return;
+                      }
+                      if (!removeMatchById(m.id)) {
+                        alert("刪除失敗，請確認已以 RINGO 管理員登入。");
+                      }
+                    }}
                   >
                     刪除
                   </button>
@@ -82,7 +93,12 @@ export default function AccountPage() {
               管理員：刪除帳號
             </h3>
             {data.accounts
-              .filter((a) => a.id !== currentAccount.id)
+              .filter(
+                (a) =>
+                  a.id !== currentAccount.id &&
+                  !a.isAdmin &&
+                  a.name.trim().toUpperCase() !== "RINGO"
+              )
               .map((account) => (
                 <Card
                   key={account.id}
@@ -92,7 +108,18 @@ export default function AccountPage() {
                   <button
                     type="button"
                     className="text-sm text-red-400 px-3 py-1"
-                    onClick={() => deleteAccountById(account.id)}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          `確定刪除玩家「${account.name}」？帳號與零件庫將一併移除並同步到雲端。`
+                        )
+                      ) {
+                        return;
+                      }
+                      if (!deleteAccountById(account.id)) {
+                        alert("無法刪除此帳號。");
+                      }
+                    }}
                   >
                     刪除
                   </button>

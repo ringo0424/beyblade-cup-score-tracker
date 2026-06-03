@@ -208,5 +208,9 @@ export interface AppData {
   libraries: UserLibrary[];
   fighters?: FighterProfile[];
   settings?: AppSettings;
+  /** 已刪除的比賽 id（雲端合併時不再復原） */
+  deletedMatchIds?: string[];
+  /** 已刪除的帳號 id（雲端合併時不再復原） */
+  deletedAccountIds?: string[];
   version: number;
 }

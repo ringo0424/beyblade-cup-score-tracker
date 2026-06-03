@@ -111,7 +111,9 @@ function HistoryRow({
   const handleDelete = () => {
     if (!onDelete) return;
     if (!confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)) return;
-    onDelete(match.id);
+    if (!onDelete(match.id)) {
+      alert("請以 RINGO 管理員登入後再刪除比賽。");
+    }
   };
 
   const rowInner = (

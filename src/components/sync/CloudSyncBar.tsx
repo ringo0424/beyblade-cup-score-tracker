@@ -19,8 +19,50 @@ export function CloudSyncBar() {
   if (!syncEnabled) {
     return (
       <Card className="mb-4 border-amber-900/40">
-        <p className="text-xs text-amber-500">
-          未設定 Supabase，僅本機儲存，無法與其他人同步。
+        <p className="text-sm font-medium text-amber-400 mb-2">
+          未設定 Supabase，僅本機儲存
+        </p>
+        <p className="text-xs text-amber-500/90 mb-3 leading-relaxed">
+          每位使用者各自一份資料，看不到其他人註冊或加入比賽。需在部署平台設定環境變數並重新部署後，全員才會共用同一份雲端資料。
+        </p>
+        <ol className="text-xs text-gray-400 space-y-2 list-decimal list-inside leading-relaxed">
+          <li>
+            至{" "}
+            <a
+              href="https://supabase.com/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-arena-neon underline"
+            >
+              Supabase
+            </a>{" "}
+            建立專案，在 SQL Editor 執行專案內{" "}
+            <code className="text-gray-500">supabase/schema.sql</code>
+          </li>
+          <li>
+            Project Settings → API，複製 Project URL 與 anon public key
+          </li>
+          <li>
+            在{" "}
+            <a
+              href="https://vercel.com/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-arena-neon underline"
+            >
+              Vercel
+            </a>{" "}
+            開啟本專案 → Settings → Environment Variables，新增{" "}
+            <code className="text-gray-500">NEXT_PUBLIC_SUPABASE_URL</code>、
+            <code className="text-gray-500">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
+            （Production 與 Preview 都建議勾選）
+          </li>
+          <li>Deployments → 對最新部署按 Redeploy，全員強制重新整理頁面</li>
+        </ol>
+        <p className="text-xs text-gray-600 mt-3">
+          本機開發請複製 <code className="text-gray-500">.env.example</code> 為{" "}
+          <code className="text-gray-500">.env.local</code> 並填入相同變數後重啟{" "}
+          <code className="text-gray-500">npm run dev</code>。
         </p>
       </Card>
     );

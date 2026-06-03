@@ -1,4 +1,9 @@
-import { normalizeAccountName, rebuildMatchPlayers } from "@/lib/accounts";
+import {
+  isAdminAccount,
+  normalizeAccountName,
+  rebuildMatchPlayers,
+} from "@/lib/accounts";
+import { deletedIdSet, mergeDeletedIds } from "@/lib/deletions";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type {
   AppData,
@@ -105,13 +110,18 @@ function mergeSingleMatch(local: Match, remote: Match): Match {
   return merged;
 }
 
-function mergeMatches(local: Match[], remote: Match[]): Match[] {
+function mergeMatches(
+  local: Match[],
+  remote: Match[],
+  deletedMatchIds: Set<string>
+): Match[] {
   const ids = new Set([
     ...local.map((m) => m.id),
     ...remote.map((m) => m.id),
   ]);
   const result: Match[] = [];
   for (const id of ids) {
+    if (deletedMatchIds.has(id)) continue;
     const l = local.find((m) => m.id === id);
     const r = remote.find((m) => m.id === id);
     if (l && r) result.push(mergeSingleMatch(l, r));
@@ -122,10 +132,20 @@ function mergeMatches(local: Match[], remote: Match[]): Match[] {
 }
 
 /** 以 id 與帳號名稱合併，避免漏掉其他裝置註冊的帳號 */
-function mergeAccounts(local: Account[], remote: Account[]): Account[] {
+function mergeAccounts(
+  local: Account[],
+  remote: Account[],
+  deletedAccountIds: Set<string>
+): Account[] {
   const byId = new Map<string, Account>();
 
   const ingest = (incoming: Account) => {
+    if (
+      deletedAccountIds.has(incoming.id) &&
+      !isAdminAccount(incoming)
+    ) {
+      return;
+    }
     const byName = [...byId.values()].find(
       (x) => accountNameKey(x) === accountNameKey(incoming)
     );
@@ -200,16 +220,36 @@ function mergeFighters(
 
 /** 合併本機與雲端，避免較新的本機資料被舊雲端覆蓋。 */
 export function mergeAppData(local: AppData, remote: AppData): AppData {
+  const deletedMatchIds = mergeDeletedIds(
+    local.deletedMatchIds,
+    remote.deletedMatchIds
+  );
+  const deletedAccountIds = mergeDeletedIds(
+    local.deletedAccountIds,
+    remote.deletedAccountIds
+  );
   return {
     eventDays:
       local.eventDays.length >= remote.eventDays.length
         ? local.eventDays
         : remote.eventDays,
-    matches: mergeMatches(local.matches, remote.matches),
-    accounts: mergeAccounts(local.accounts, remote.accounts),
-    libraries: mergeLibraries(local.libraries, remote.libraries),
+    matches: mergeMatches(
+      local.matches,
+      remote.matches,
+      deletedIdSet(deletedMatchIds)
+    ),
+    accounts: mergeAccounts(
+      local.accounts,
+      remote.accounts,
+      deletedIdSet(deletedAccountIds)
+    ),
+    libraries: mergeLibraries(local.libraries, remote.libraries).filter(
+      (l) => !deletedIdSet(deletedAccountIds).has(l.accountId)
+    ),
     fighters: mergeFighters(local.fighters ?? [], remote.fighters ?? []),
     settings: { ...remote.settings, ...local.settings },
+    deletedMatchIds,
+    deletedAccountIds,
     version: Math.max(local.version ?? 0, remote.version ?? 0, 4),
   };
 }

@@ -384,11 +384,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const deleteAccountById = useCallback(
     (accountId: string): boolean => {
       if (!isAdminAccount(currentAccount)) return false;
+      const target = findAccountById(dataRef.current ?? dataOrEmpty, accountId);
+      if (!target || isAdminAccount(target)) return false;
       if (accountId === currentAccount?.id) return false;
       mutate((d) => removeAccount(d, accountId));
       return true;
     },
-    [currentAccount, mutate]
+    [currentAccount, dataOrEmpty, mutate]
   );
 
   const joinMatchById = useCallback(

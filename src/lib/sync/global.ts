@@ -20,6 +20,8 @@ const EMPTY_PAYLOAD: AppData = normalizeAppData({
   libraries: [],
   fighters: [],
   settings: {},
+  deletedMatchIds: [],
+  deletedAccountIds: [],
   version: 4,
 });
 

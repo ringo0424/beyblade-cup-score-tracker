@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAppData } from "@/hooks/useAppData";
+import { ADMIN_ACCOUNT_NAME } from "@/lib/accounts";
 import { computeFighterStats } from "@/lib/fighters/stats";
 import { fighterNameKey } from "@/lib/fighters/keys";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +12,8 @@ import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 const ICON_PRESETS = ["🏆", "👑", "⚔️", "🔥", "💎", "🌟", "🐉", "🦅", "🎯", "💀"];
 
 export default function FightersPage() {
-  const { data, hydrated, isAdmin, setFighterIcon } = useAppData();
+  const { data, hydrated, isAdmin, setFighterIcon, deleteAccountById } =
+    useAppData();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftIcon, setDraftIcon] = useState("");
 
@@ -38,6 +40,11 @@ export default function FightersPage() {
       <h2 className="text-xl font-bold mb-1">選手</h2>
       <p className="text-sm text-gray-500 mb-4">
         已註冊帳號（全 App 同步）· 共 {registered.length} 人
+        {isAdmin && (
+          <span className="block text-xs text-arena-purple mt-1">
+            管理員可刪除玩家帳號（RINGO 除外）
+          </span>
+        )}
       </p>
 
       <CloudSyncBar />
@@ -53,6 +60,10 @@ export default function FightersPage() {
           const key = fighterNameKey(account.name);
           const stats = statByName.get(key);
           const icon = stats?.icon;
+          const canDeletePlayer =
+            isAdmin &&
+            account.name.trim().toUpperCase() !== ADMIN_ACCOUNT_NAME &&
+            !account.isAdmin;
 
           return (
             <Card key={account.id} className="mb-2">
@@ -131,16 +142,38 @@ export default function FightersPage() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="text-xs text-arena-purple"
-                      onClick={() => {
-                        setEditingKey(key);
-                        setDraftIcon(icon ?? "");
-                      }}
-                    >
-                      編輯 Icon
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs text-arena-purple"
+                        onClick={() => {
+                          setEditingKey(key);
+                          setDraftIcon(icon ?? "");
+                        }}
+                      >
+                        編輯 Icon
+                      </button>
+                      {canDeletePlayer && (
+                        <button
+                          type="button"
+                          className="text-xs text-red-400"
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                `確定刪除玩家「${account.name}」？帳號與零件庫將一併移除並同步到雲端。`
+                              )
+                            ) {
+                              return;
+                            }
+                            if (!deleteAccountById(account.id)) {
+                              alert("無法刪除此帳號。");
+                            }
+                          }}
+                        >
+                          刪除玩家
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

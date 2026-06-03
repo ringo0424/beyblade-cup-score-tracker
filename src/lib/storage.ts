@@ -4,6 +4,7 @@ import { generateId } from "./id";
 import { sampleAppData } from "./sampleData";
 
 import { ensureRingoAccount } from "@/lib/auth/password";
+import { deletedIdSet } from "@/lib/deletions";
 
 const DATA_VERSION = 4;
 
@@ -15,19 +16,29 @@ function emptyData(): AppData {
     libraries: [],
     fighters: [],
     settings: {},
+    deletedMatchIds: [],
+    deletedAccountIds: [],
     version: DATA_VERSION,
   };
 }
 
 export function normalizeAppData(raw: Partial<AppData>): AppData {
-  const accounts = ensureRingoAccount(raw.accounts ?? []);
+  const deletedMatches = deletedIdSet(raw.deletedMatchIds);
+  const deletedAccounts = deletedIdSet(raw.deletedAccountIds);
+  const accounts = ensureRingoAccount(
+    (raw.accounts ?? []).filter((a) => !deletedAccounts.has(a.id))
+  );
   return {
     eventDays: raw.eventDays ?? [],
-    matches: raw.matches ?? [],
+    matches: (raw.matches ?? []).filter((m) => !deletedMatches.has(m.id)),
     accounts,
-    libraries: raw.libraries ?? [],
+    libraries: (raw.libraries ?? []).filter(
+      (l) => !deletedAccounts.has(l.accountId)
+    ),
     fighters: raw.fighters ?? [],
     settings: raw.settings ?? {},
+    deletedMatchIds: raw.deletedMatchIds ?? [],
+    deletedAccountIds: raw.deletedAccountIds ?? [],
     version: DATA_VERSION,
   };
 }
@@ -80,12 +91,15 @@ export function upsertMatch(data: AppData, match: Match): AppData {
 }
 
 export function deleteMatch(data: AppData, matchId: string): AppData {
+  const deletedMatchIds = [
+    ...new Set([...(data.deletedMatchIds ?? []), matchId]),
+  ];
   const matches = data.matches.filter((m) => m.id !== matchId);
   const eventDays = data.eventDays.map((e) => ({
     ...e,
     matchIds: e.matchIds.filter((id) => id !== matchId),
   }));
-  return { ...data, matches, eventDays };
+  return { ...data, matches, eventDays, deletedMatchIds };
 }
 
 export function getTodayDateString(): string {

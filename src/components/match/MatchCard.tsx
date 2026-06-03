@@ -103,7 +103,10 @@ export function MatchCard({
                 if (
                   confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)
                 ) {
-                  onDelete(match.id);
+                  const ok = onDelete(match.id);
+                  if (!ok) {
+                    alert("請以 RINGO 管理員登入後再刪除比賽。");
+                  }
                 }
               }}
             >

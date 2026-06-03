@@ -1,4 +1,5 @@
 import type { Account, AppData, Match, Player } from "@/types";
+import { fighterNameKey } from "@/lib/fighters/keys";
 import { generateId } from "./id";
 import { getMatch, upsertMatch } from "./storage";
 import {
@@ -72,6 +73,12 @@ export function authenticateAccount(
 }
 
 export function removeAccount(data: AppData, accountId: string): AppData {
+  const target = findAccountById(data, accountId);
+  if (!target || isAdminAccount(target)) return data;
+
+  const deletedAccountIds = [
+    ...new Set([...(data.deletedAccountIds ?? []), accountId]),
+  ];
   const accounts = data.accounts.filter((a) => a.id !== accountId);
   const matches = data.matches.map((match) => {
     const players = match.players.filter((p) => p.accountId !== accountId);
@@ -79,7 +86,17 @@ export function removeAccount(data: AppData, accountId: string): AppData {
     return rebuildMatchPlayers(match, players);
   });
   const libraries = data.libraries.filter((l) => l.accountId !== accountId);
-  return { ...data, accounts, matches, libraries };
+  const fighters = (data.fighters ?? []).filter(
+    (f) => fighterNameKey(target.name) !== f.nameKey
+  );
+  return {
+    ...data,
+    accounts,
+    matches,
+    libraries,
+    fighters,
+    deletedAccountIds,
+  };
 }
 
 export function rebuildMatchPlayers(match: Match, players: Player[]): Match {

@@ -11,7 +11,7 @@ create table if not exists public.app_global (
 insert into public.app_global (id, payload, revision)
 values (
   'main',
-  '{"eventDays":[],"matches":[],"accounts":[],"version":2}'::jsonb,
+  '{"eventDays":[],"matches":[],"accounts":[],"version":4}'::jsonb,
   0
 )
 on conflict (id) do nothing;
