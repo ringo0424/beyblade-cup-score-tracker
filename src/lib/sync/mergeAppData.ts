@@ -1,4 +1,4 @@
-import { rebuildMatchPlayers } from "@/lib/accounts";
+import { normalizeAccountName, rebuildMatchPlayers } from "@/lib/accounts";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type {
   AppData,
@@ -12,6 +12,10 @@ import type {
 
 function playerKey(p: Player): string {
   return p.accountId ?? p.id;
+}
+
+function accountNameKey(a: Account): string {
+  return normalizeAccountName(a.name).toLowerCase();
 }
 
 function mergePlayers(a: Player[], b: Player[]): Player[] {
@@ -41,6 +45,16 @@ function pickSetup(
   return found.sort((a, b) => setupScore(b) - setupScore(a))[0];
 }
 
+function mergeAccountPair(a: Account, b: Account): Account {
+  const base = a.createdAt >= b.createdAt ? a : b;
+  const other = a.createdAt >= b.createdAt ? b : a;
+  return {
+    ...base,
+    passwordHash: base.passwordHash || other.passwordHash,
+    isAdmin: base.isAdmin || other.isAdmin,
+  };
+}
+
 function mergeSingleMatch(local: Match, remote: Match): Match {
   const players = mergePlayers(local.players, remote.players);
   const base = local.updatedAt >= remote.updatedAt ? local : remote;
@@ -53,7 +67,8 @@ function mergeSingleMatch(local: Match, remote: Match): Match {
   let merged: Match = {
     ...base,
     players,
-    rounds: local.rounds.length >= remote.rounds.length ? local.rounds : remote.rounds,
+    rounds:
+      local.rounds.length >= remote.rounds.length ? local.rounds : remote.rounds,
     updatedAt:
       local.updatedAt >= remote.updatedAt ? local.updatedAt : remote.updatedAt,
   };
@@ -106,25 +121,39 @@ function mergeMatches(local: Match[], remote: Match[]): Match[] {
   return result;
 }
 
+/** 以 id 與帳號名稱合併，避免漏掉其他裝置註冊的帳號 */
 function mergeAccounts(local: Account[], remote: Account[]): Account[] {
-  const map = new Map<string, Account>();
-  for (const a of remote) map.set(a.id, a);
-  for (const a of local) {
-    const existing = map.get(a.id);
+  const byId = new Map<string, Account>();
+
+  const ingest = (incoming: Account) => {
+    const byName = [...byId.values()].find(
+      (x) => accountNameKey(x) === accountNameKey(incoming)
+    );
+    const bySameId = byId.get(incoming.id);
+    const existing = bySameId ?? byName;
+
     if (!existing) {
-      map.set(a.id, a);
-      continue;
+      byId.set(incoming.id, incoming);
+      return;
     }
-    const preferLocal =
-      Boolean(a.passwordHash) && !existing.passwordHash
-        ? true
-        : a.createdAt >= existing.createdAt;
-    map.set(a.id, preferLocal ? a : existing);
-  }
-  return Array.from(map.values());
+
+    const merged = mergeAccountPair(existing, incoming);
+    if (existing.id !== incoming.id) {
+      byId.delete(existing.id);
+    }
+    byId.set(merged.id, merged);
+  };
+
+  for (const a of remote) ingest(a);
+  for (const a of local) ingest(a);
+
+  return Array.from(byId.values());
 }
 
-function mergeLibraries(local: UserLibrary[], remote: UserLibrary[]): UserLibrary[] {
+function mergeLibraries(
+  local: UserLibrary[],
+  remote: UserLibrary[]
+): UserLibrary[] {
   const map = new Map<string, UserLibrary>();
   for (const lib of remote) map.set(lib.accountId, lib);
   for (const lib of local) {
@@ -140,7 +169,9 @@ function mergeLibraries(local: UserLibrary[], remote: UserLibrary[]): UserLibrar
           ? lib.savedParts
           : existing.savedParts,
       builds:
-        lib.builds.length >= existing.builds.length ? lib.builds : existing.builds,
+        lib.builds.length >= existing.builds.length
+          ? lib.builds
+          : existing.builds,
     });
   }
   return Array.from(map.values());
@@ -185,4 +216,32 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
 
 export function appDataChanged(a: AppData, b: AppData): boolean {
   return JSON.stringify(a) !== JSON.stringify(b);
+}
+
+function totalMatchPlayers(data: AppData): number {
+  return data.matches.reduce((n, m) => n + m.players.length, 0);
+}
+
+/** 合併後比雲端更完整時，應回推到 Supabase */
+export function shouldPushMergedToCloud(
+  merged: AppData,
+  remote: AppData
+): boolean {
+  if (merged.accounts.length > remote.accounts.length) return true;
+  if (totalMatchPlayers(merged) > totalMatchPlayers(remote)) return true;
+  if (merged.matches.length > remote.matches.length) return true;
+  return appDataChanged(
+    stripForCompare(merged),
+    stripForCompare(remote)
+  );
+}
+
+function stripForCompare(data: AppData): AppData {
+  return {
+    ...data,
+    matches: data.matches.map((m) => {
+      const { celebrationPhotos: _, ...rest } = m;
+      return rest;
+    }),
+  };
 }

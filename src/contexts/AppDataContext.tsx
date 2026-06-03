@@ -45,7 +45,11 @@ import {
   stripPhotosForCloudSync,
   syncPhotoMapFromAppData,
 } from "@/lib/matchPhotosStorage";
-import { appDataChanged, mergeAppData } from "@/lib/sync/mergeAppData";
+import {
+  appDataChanged,
+  mergeAppData,
+  shouldPushMergedToCloud,
+} from "@/lib/sync/mergeAppData";
 import {
   fetchGlobalState,
   pushGlobalState,
@@ -141,7 +145,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           persistLocal(merged);
           applyingRemoteRef.current = false;
           setSyncError("已與雲端合併最新資料（保留本機較新紀錄）");
-          if (appDataChanged(merged, result.payload)) {
+          if (shouldPushMergedToCloud(merged, result.payload)) {
             scheduleCloudPush(merged);
           }
         } else if (!result.ok && "error" in result) {
@@ -153,14 +157,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [persistLocal, syncEnabled]
   );
 
-  const persist = useCallback(
-    (next: AppData) => {
+  type AppDataUpdater = AppData | ((prev: AppData) => AppData);
+
+  const mutate = useCallback(
+    (updater: AppDataUpdater) => {
+      const prev = dataRef.current ?? loadAppData();
+      const next =
+        typeof updater === "function" ? updater(prev) : updater;
       const normalized = normalizeAppData(next);
       persistLocal(normalized);
-      if (syncEnabled) {
+      if (syncEnabled && !applyingRemoteRef.current) {
         setSyncStatus("synced");
         scheduleCloudPush(normalized);
       }
+      return normalized;
     },
     [persistLocal, scheduleCloudPush, syncEnabled]
   );
@@ -188,12 +198,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
-      if (
-        appDataChanged(
-          stripPhotosForCloudSync(merged),
-          stripPhotosForCloudSync(remote)
-        )
-      ) {
+      if (shouldPushMergedToCloud(merged, remote)) {
         scheduleCloudPush(merged);
       }
     });
@@ -209,11 +214,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         dataRef.current ?? loadAppData()
       );
       const remote = attachLocalPhotos(normalizeAppData(payload));
-      persistLocal(mergeAppData(local, remote));
+      const merged = mergeAppData(local, remote);
+      persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
+      if (shouldPushMergedToCloud(merged, remote)) {
+        scheduleCloudPush(merged);
+      }
     });
-  }, [persistLocal, syncEnabled]);
+  }, [persistLocal, scheduleCloudPush, syncEnabled]);
 
   const loginAs = useCallback((accountId: string) => {
     localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, accountId);
@@ -222,28 +231,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const saveMatch = useCallback(
     (match: Match) => {
-      if (!data) return;
-      persist(upsertMatch(data, match));
+      mutate((d) => upsertMatch(d, match));
     },
-    [data, persist]
+    [mutate]
   );
 
   const removeMatchById = useCallback(
     (matchId: string): boolean => {
-      if (!data || !isAdminAccount(currentAccount)) return false;
-      persist(removeMatch(data, matchId));
+      if (!isAdminAccount(currentAccount)) return false;
+      mutate((d) => removeMatch(d, matchId));
       return true;
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const loadSample = useCallback(() => {
-    persist(seedSampleData());
-  }, [persist]);
+    mutate(seedSampleData());
+  }, [mutate]);
 
   const resetAll = useCallback(() => {
-    persist(clearAllData());
-  }, [persist]);
+    mutate(clearAllData());
+  }, [mutate]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
@@ -252,71 +260,83 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const loginWithPassword = useCallback(
     (name: string, password: string): string | null => {
-      if (!data) return "載入中";
-      const account = authenticateAccount(data, name, password);
+      if (!hydrated) return "載入中";
+      const snapshot = dataRef.current ?? loadAppData();
+      const account = authenticateAccount(snapshot, name, password);
       if (!account) return "帳號或密碼錯誤";
       loginAs(account.id);
       return null;
     },
-    [data, loginAs]
+    [hydrated, loginAs]
   );
 
   const registerWithPassword = useCallback(
     (name: string, password: string): string | null => {
-      if (!data) return "載入中";
+      if (!hydrated) return "載入中";
       if (password.length < 4) return "密碼至少 4 字";
-      if (authenticateAccount(data, name, password)) {
-        loginAs(authenticateAccount(data, name, password)!.id);
+
+      const snapshot = dataRef.current ?? loadAppData();
+      const existingLogin = authenticateAccount(snapshot, name, password);
+      if (existingLogin) {
+        loginAs(existingLogin.id);
         return null;
       }
-      const existing = data.accounts.find(
+      const dup = snapshot.accounts.find(
         (a) => a.name.toLowerCase() === name.trim().toLowerCase()
       );
-      if (existing) return "此帳號已存在，請直接登入";
-      const next = addAccount(data, name, password);
-      const created = next.accounts[next.accounts.length - 1];
-      persist(next);
-      loginAs(created.id);
+      if (dup) return "此帳號已存在，請直接登入";
+
+      let createdId = "";
+      mutate((d) => {
+        const next = addAccount(d, name, password);
+        createdId = next.accounts[next.accounts.length - 1].id;
+        return next;
+      });
+      loginAs(createdId);
       return null;
     },
-    [data, loginAs, persist]
+    [hydrated, loginAs, mutate]
   );
 
   const deleteAccountById = useCallback(
     (accountId: string): boolean => {
-      if (!data || !isAdminAccount(currentAccount)) return false;
+      if (!isAdminAccount(currentAccount)) return false;
       if (accountId === currentAccount?.id) return false;
-      persist(removeAccount(data, accountId));
+      mutate((d) => removeAccount(d, accountId));
       return true;
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const joinMatchById = useCallback(
     (matchId: string): boolean => {
-      if (!data || !currentAccount) return false;
-      const next = joinMatchAction(data, matchId, currentAccount);
-      if (next === data) return false;
-      persist(next);
-      return true;
+      if (!currentAccount) return false;
+      let ok = false;
+      mutate((d) => {
+        const next = joinMatchAction(d, matchId, currentAccount);
+        if (next === d) return d;
+        ok = true;
+        return next;
+      });
+      return ok;
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const addPartToLibrary = useCallback(
     (part: Omit<LibraryPart, "id">) => {
-      if (!data || !currentAccount) return;
-      persist(addLibraryPart(data, currentAccount.id, part));
+      if (!currentAccount) return;
+      mutate((d) => addLibraryPart(d, currentAccount.id, part));
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const removePartFromLibrary = useCallback(
     (partId: string) => {
-      if (!data || !currentAccount) return;
-      persist(removeLibraryPart(data, currentAccount.id, partId));
+      if (!currentAccount) return;
+      mutate((d) => removeLibraryPart(d, currentAccount.id, partId));
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const saveBuildToLibrary = useCallback(
@@ -324,39 +344,38 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       beyblade: Beyblade,
       partTypes: Partial<Record<PhstudyPartCategory, string>>
     ) => {
-      if (!data || !currentAccount) return;
+      if (!currentAccount) return;
       const build = createLibraryBuild(beyblade, partTypes);
-      persist(addLibraryBuild(data, currentAccount.id, build));
+      mutate((d) => addLibraryBuild(d, currentAccount.id, build));
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const removeBuildFromLibrary = useCallback(
     (buildId: string) => {
-      if (!data || !currentAccount) return;
-      persist(removeLibraryBuild(data, currentAccount.id, buildId));
+      if (!currentAccount) return;
+      mutate((d) => removeLibraryBuild(d, currentAccount.id, buildId));
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const setToxicQuotesEnabled = useCallback(
     (enabled: boolean) => {
-      if (!data) return;
-      persist({
-        ...data,
-        settings: { ...data.settings, toxicQuotesEnabled: enabled },
-      });
+      mutate((d) => ({
+        ...d,
+        settings: { ...d.settings, toxicQuotesEnabled: enabled },
+      }));
     },
-    [data, persist]
+    [mutate]
   );
 
   const setFighterIcon = useCallback(
     (displayName: string, icon: string | undefined): boolean => {
-      if (!data || !isAdminAccount(currentAccount)) return false;
-      persist(setFighterIconAction(data, displayName, icon));
+      if (!isAdminAccount(currentAccount)) return false;
+      mutate((d) => setFighterIconAction(d, displayName, icon));
       return true;
     },
-    [currentAccount, data, persist]
+    [currentAccount, mutate]
   );
 
   const value: AppDataContextValue = {
@@ -372,7 +391,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     removeMatchById,
     loadSample,
     resetAll,
-    setData: persist,
+    setData: mutate,
     loginWithPassword,
     registerWithPassword,
     logout,
