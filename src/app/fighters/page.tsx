@@ -9,18 +9,12 @@ import { Button } from "@/components/ui/Button";
 const ICON_PRESETS = ["🏆", "👑", "⚔️", "🔥", "💎", "🌟", "🐉", "🦅", "🎯", "💀"];
 
 export default function FightersPage() {
-  const {
-    data,
-    hydrated,
-    isAdmin,
-    toxicQuotesEnabled,
-    setToxicQuotesEnabled,
-    setFighterIcon,
-  } = useAppData();
+  const { data, hydrated, isAdmin, setFighterIcon } = useAppData();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftIcon, setDraftIcon] = useState("");
 
   const rows = useMemo(() => computeFighterStats(data), [data]);
+  const signedUp = rows.filter((r) => r.signedUp);
 
   if (!hydrated) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
@@ -30,32 +24,20 @@ export default function FightersPage() {
     <div>
       <h2 className="text-xl font-bold mb-1">選手</h2>
       <p className="text-sm text-gray-500 mb-4">
-        依已完成比賽統計冠軍、亞軍次數；管理員可設定 Icon。
+        已註冊帳號與比賽冠軍、亞軍紀錄。
       </p>
 
-      <Card className="mb-4">
-        <label className="flex items-center justify-between gap-3 cursor-pointer">
-          <span className="text-sm">毒舌評語（比賽結束時可能出現）</span>
-          <input
-            type="checkbox"
-            checked={toxicQuotesEnabled}
-            onChange={(e) => setToxicQuotesEnabled(e.target.checked)}
-            className="h-5 w-5 accent-arena-neon"
-          />
-        </label>
-      </Card>
-
-      {rows.length === 0 ? (
+      {signedUp.length === 0 ? (
         <Card>
           <p className="text-center text-gray-500 py-6 text-sm">
-            尚無選手紀錄，完成比賽後會自動出現。
+            尚無已註冊選手。
           </p>
         </Card>
       ) : (
-        rows.map((row) => (
+        signedUp.map((row) => (
           <Card key={row.nameKey} className="mb-2">
             <div className="flex items-start gap-3">
-              <span className="text-2xl w-10 text-center shrink-0">
+              <span className="text-2xl w-10 h-10 flex items-center justify-center shrink-0">
                 {row.icon || "🎮"}
               </span>
               <div className="flex-1 min-w-0">
@@ -63,8 +45,8 @@ export default function FightersPage() {
                   {row.displayName}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  冠軍 {row.championCount} · 亞軍 {row.runnerUpCount} · 參賽{" "}
-                  {row.matchCount} 場
+                  冠軍 {row.championCount} · 亞軍 {row.runnerUpCount}
+                  {row.matchCount > 0 ? ` · 參賽 ${row.matchCount} 場` : ""}
                 </p>
               </div>
             </div>
@@ -73,7 +55,6 @@ export default function FightersPage() {
               <div className="mt-3 pt-3 border-t border-arena-border/50">
                 {editingKey === row.nameKey ? (
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">選擇或輸入 Icon</p>
                     <div className="flex flex-wrap gap-2 mb-2">
                       {ICON_PRESETS.map((emoji) => (
                         <button

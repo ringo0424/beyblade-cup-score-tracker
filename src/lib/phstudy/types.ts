@@ -43,4 +43,8 @@ export interface PhstudyRawPart {
   catalog_title?: Record<string, string>;
   type?: string;
   tags?: string[];
+  invalid?: boolean;
+  collection_visible?: Record<string, boolean>;
+  en_name?: string;
+  model_name?: string;
 }

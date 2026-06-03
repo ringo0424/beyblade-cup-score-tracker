@@ -31,20 +31,44 @@ function pickLocaleName(
   return stripHtml(raw);
 }
 
+/** Same rule as beyblade.phstudy.org viewer: at least one locale visible. */
+export function isPartCatalogVisible(item: PhstudyRawPart): boolean {
+  if (item.invalid) return false;
+  const vis = item.collection_visible;
+  if (!vis) return false;
+  return Object.values(vis).some(Boolean);
+}
+
+function partDisplayName(item: PhstudyRawPart, locale: string): string {
+  const name = pickLocaleName(item.name, locale);
+  const catalogTitle = pickLocaleName(item.catalog_title, locale);
+  if (name.length > 0) {
+    if (name.length <= 3 && catalogTitle.length > name.length) return catalogTitle;
+    return name;
+  }
+  if (catalogTitle) return catalogTitle;
+  if (item.en_name?.trim()) return item.en_name.trim();
+  return "";
+}
+
 function toPartOption(
   item: PhstudyRawPart,
   locale: string,
   category: PhstudyPartCategory
 ): PhstudyPartOption | null {
   if (!item?.id) return null;
-  const name = pickLocaleName(item.name, locale);
+  if (item.id.endsWith("R")) return null;
+  if (!isPartCatalogVisible(item)) return null;
+
+  const name = partDisplayName(item, locale);
   if (!name) return null;
+
   const catalogTitle = pickLocaleName(item.catalog_title, locale);
   const images = getPhstudyImagePaths(category, item.id);
   return {
     id: item.id,
     name,
-    catalogTitle: catalogTitle || undefined,
+    catalogTitle: catalogTitle && catalogTitle !== name ? catalogTitle : undefined,
     type: item.type || undefined,
     imageUrl: images.primary,
     imageFallbackJpg: images.fallbackJpg,

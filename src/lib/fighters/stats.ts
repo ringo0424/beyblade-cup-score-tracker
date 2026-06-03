@@ -1,4 +1,5 @@
 import { getLeaderboard } from "@/lib/scoring";
+import { normalizeAccountName } from "@/lib/accounts";
 import type { AppData, FighterProfile, Match } from "@/types";
 import { fighterDisplayName, fighterNameKey } from "./keys";
 
@@ -10,6 +11,7 @@ export interface FighterStatRow {
   championCount: number;
   runnerUpCount: number;
   matchCount: number;
+  signedUp: boolean;
 }
 
 function ensureRow(
@@ -26,10 +28,14 @@ function ensureRow(
       championCount: 0,
       runnerUpCount: 0,
       matchCount: 0,
+      signedUp: false,
     };
     map.set(key, row);
   }
-  if (accountId && !row.accountId) row.accountId = accountId;
+  if (accountId) {
+    row.accountId = accountId;
+    row.signedUp = true;
+  }
   return row;
 }
 
@@ -70,6 +76,7 @@ function applyProfileIcons(
         championCount: 0,
         runnerUpCount: 0,
         matchCount: 0,
+        signedUp: Boolean(p.accountId),
       });
     }
   }
@@ -77,6 +84,11 @@ function applyProfileIcons(
 
 export function computeFighterStats(data: AppData): FighterStatRow[] {
   const map = new Map<string, FighterStatRow>();
+
+  for (const account of data.accounts) {
+    if (!account.passwordHash) continue;
+    ensureRow(map, normalizeAccountName(account.name), account.id);
+  }
 
   for (const match of data.matches) {
     if (match.status !== "completed") continue;
@@ -94,6 +106,7 @@ export function computeFighterStats(data: AppData): FighterStatRow[] {
   applyProfileIcons(map, data.fighters ?? []);
 
   return Array.from(map.values()).sort((a, b) => {
+    if (a.signedUp !== b.signedUp) return a.signedUp ? -1 : 1;
     if (b.championCount !== a.championCount) {
       return b.championCount - a.championCount;
     }

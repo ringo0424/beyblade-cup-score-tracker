@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PhstudyPartsCatalogResponse } from "@/lib/phstudy/types";
 
-export const PARTS_CATALOG_STORAGE_KEY = "beyblade-phstudy-catalog-v1";
+export const PARTS_CATALOG_STORAGE_KEY = "beyblade-phstudy-catalog-v2";
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface CachedCatalog {

@@ -82,17 +82,19 @@ export function PartCombobox({
       </div>
 
       <div className="flex gap-2 items-center">
-        {partId && (
-          <PartImage
-            partId={partId}
-            category={category}
-            alt={value || partId}
-            size="md"
-            imageUrl={selectedOption?.imageUrl}
-            imageFallbackJpg={selectedOption?.imageFallbackJpg}
-            imageFallbackApp={selectedOption?.imageFallbackApp}
-          />
-        )}
+        <div className="shrink-0 w-12 h-12 flex items-center justify-center">
+          {partId ? (
+            <PartImage
+              partId={partId}
+              category={category}
+              alt={value || partId}
+              size="md"
+              imageUrl={selectedOption?.imageUrl}
+              imageFallbackJpg={selectedOption?.imageFallbackJpg}
+              imageFallbackApp={selectedOption?.imageFallbackApp}
+            />
+          ) : null}
+        </div>
         <input
           id={listId}
           className="input-arena flex-1 min-w-0"
@@ -122,15 +124,17 @@ export function PartCombobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => select(opt)}
               >
-                <PartImage
-                  partId={opt.id}
-                  category={category}
-                  alt={opt.name}
-                  size="md"
-                  imageUrl={opt.imageUrl}
-                  imageFallbackJpg={opt.imageFallbackJpg}
-                  imageFallbackApp={opt.imageFallbackApp}
-                />
+                <div className="shrink-0 w-12 h-12 flex items-center justify-center">
+                  <PartImage
+                    partId={opt.id}
+                    category={category}
+                    alt={opt.name}
+                    size="md"
+                    imageUrl={opt.imageUrl}
+                    imageFallbackJpg={opt.imageFallbackJpg}
+                    imageFallbackApp={opt.imageFallbackApp}
+                  />
+                </div>
                 <span className="min-w-0 flex-1">
                   <span className="font-medium text-gray-100 block truncate">
                     {opt.name}

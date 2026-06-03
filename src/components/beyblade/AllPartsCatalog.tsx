@@ -99,15 +99,17 @@ export function AllPartsCatalog() {
             key={part.id}
             className="mb-2 flex items-center gap-3 py-2"
           >
-            <PartImage
-              partId={part.id}
-              category={category}
-              alt={part.name}
-              size="md"
-              imageUrl={part.imageUrl}
-              imageFallbackJpg={part.imageFallbackJpg}
-              imageFallbackApp={part.imageFallbackApp}
-            />
+            <div className="shrink-0 w-12 h-12 flex items-center justify-center">
+              <PartImage
+                partId={part.id}
+                category={category}
+                alt={part.name}
+                size="md"
+                imageUrl={part.imageUrl}
+                imageFallbackJpg={part.imageFallbackJpg}
+                imageFallbackApp={part.imageFallbackApp}
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{part.name}</p>
               {part.type && (
