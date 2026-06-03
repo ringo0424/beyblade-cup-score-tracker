@@ -106,7 +106,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           persistLocal(result.payload);
           applyingRemoteRef.current = false;
           setSyncError("其他人剛更新，已同步最新資料");
-        } else if (!result.ok) {
+        } else if (!result.ok && "error" in result) {
           setSyncStatus("error");
           setSyncError(result.error);
         }
