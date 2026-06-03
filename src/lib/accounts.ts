@@ -82,7 +82,7 @@ export function removeAccount(data: AppData, accountId: string): AppData {
   return { ...data, accounts, matches, libraries };
 }
 
-function rebuildMatchPlayers(match: Match, players: Player[]): Match {
+export function rebuildMatchPlayers(match: Match, players: Player[]): Match {
   const pairings =
     match.matchType === "1v1" && players.length === 2
       ? create1v1Pairing(players[0].id, players[1].id)
@@ -149,5 +149,19 @@ export function minPlayersForMatch(match: Match): number {
 export function openJoinableMatches(data: AppData, accountId: string): Match[] {
   return data.matches
     .filter((m) => m.status === "setup" && canJoinMatch(m, accountId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** 已建立或已加入、仍在籌備中的比賽 */
+export function setupMatchesForAccount(
+  data: AppData,
+  accountId: string
+): Match[] {
+  return data.matches
+    .filter(
+      (m) =>
+        m.status === "setup" &&
+        (m.hostAccountId === accountId || isJoinedMatch(m, accountId))
+    )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }

@@ -74,9 +74,10 @@ export function MatchCard({
               : "尚無選手"}
           </p>
           {match.status === "setup" && (
-            <p className="text-xs text-gray-600 mt-1">
-              {match.matchType === "1v1" ? "1v1" : "循環賽"} · 需要至少 {minP}{" "}
-              人 · 已 {match.players.length} 人
+            <p className="text-xs text-arena-neon/80 mt-1">
+              籌備中 · {match.matchType === "1v1" ? "1v1" : "循環賽"} · 已{" "}
+              {match.players.length} 人
+              {match.players.length < minP ? `（尚缺 ${minP - match.players.length} 人）` : "（可開始）"}
             </p>
           )}
         </div>

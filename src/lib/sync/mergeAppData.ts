@@ -1,17 +1,109 @@
-import type { AppData, Account, FighterProfile, Match, UserLibrary } from "@/types";
+import { rebuildMatchPlayers } from "@/lib/accounts";
+import { createDefaultSetup } from "@/lib/beyblade";
+import type {
+  AppData,
+  Account,
+  BeybladeSetup,
+  FighterProfile,
+  Match,
+  Player,
+  UserLibrary,
+} from "@/types";
 
-function pickNewerMatch(a: Match, b: Match): Match {
-  return a.updatedAt >= b.updatedAt ? a : b;
+function playerKey(p: Player): string {
+  return p.accountId ?? p.id;
+}
+
+function mergePlayers(a: Player[], b: Player[]): Player[] {
+  const map = new Map<string, Player>();
+  for (const p of a) map.set(playerKey(p), p);
+  for (const p of b) map.set(playerKey(p), p);
+  return Array.from(map.values());
+}
+
+function setupScore(setup: BeybladeSetup): number {
+  return setup.beyblades.reduce(
+    (n, b) =>
+      n +
+      (b.nickname ? 1 : 0) +
+      (b.steelBlade ? 1 : 0) +
+      (b.lockDisk ? 1 : 0),
+    0
+  );
+}
+
+function pickSetup(
+  playerId: string,
+  ...candidates: (BeybladeSetup | undefined)[]
+): BeybladeSetup {
+  const found = candidates.filter(Boolean) as BeybladeSetup[];
+  if (found.length === 0) return createDefaultSetup(playerId);
+  return found.sort((a, b) => setupScore(b) - setupScore(a))[0];
+}
+
+function mergeSingleMatch(local: Match, remote: Match): Match {
+  const players = mergePlayers(local.players, remote.players);
+  const base = local.updatedAt >= remote.updatedAt ? local : remote;
+  const other = local.updatedAt >= remote.updatedAt ? remote : local;
+
+  const playerCountChanged =
+    players.length !== local.players.length ||
+    players.length !== remote.players.length;
+
+  let merged: Match = {
+    ...base,
+    players,
+    rounds: local.rounds.length >= remote.rounds.length ? local.rounds : remote.rounds,
+    updatedAt:
+      local.updatedAt >= remote.updatedAt ? local.updatedAt : remote.updatedAt,
+  };
+
+  if (local.status === "inProgress" || remote.status === "inProgress") {
+    merged.status =
+      local.updatedAt >= remote.updatedAt ? local.status : remote.status;
+    merged.currentPairingIndex =
+      local.updatedAt >= remote.updatedAt
+        ? local.currentPairingIndex
+        : remote.currentPairingIndex;
+    merged.winnerPlayerId =
+      local.updatedAt >= remote.updatedAt
+        ? local.winnerPlayerId
+        : remote.winnerPlayerId;
+    merged.pairings =
+      local.updatedAt >= remote.updatedAt ? local.pairings : remote.pairings;
+  }
+
+  if (playerCountChanged && merged.status === "setup") {
+    merged = rebuildMatchPlayers(merged, players);
+  }
+
+  merged.beybladeSetups = players.map((p) =>
+    pickSetup(
+      p.id,
+      local.beybladeSetups.find((s) => s.playerId === p.id),
+      remote.beybladeSetups.find((s) => s.playerId === p.id),
+      other.beybladeSetups.find((s) => s.playerId === p.id),
+      base.beybladeSetups.find((s) => s.playerId === p.id)
+    )
+  );
+
+  return merged;
 }
 
 function mergeMatches(local: Match[], remote: Match[]): Match[] {
-  const map = new Map<string, Match>();
-  for (const m of remote) map.set(m.id, m);
-  for (const m of local) {
-    const existing = map.get(m.id);
-    map.set(m.id, existing ? pickNewerMatch(m, existing) : m);
+  const ids = new Set([
+    ...local.map((m) => m.id),
+    ...remote.map((m) => m.id),
+  ]);
+  const result: Match[] = [];
+  for (const id of ids) {
+    const l = local.find((m) => m.id === id);
+    const r = remote.find((m) => m.id === id);
+    if (l && r) result.push(mergeSingleMatch(l, r));
+    else if (l) result.push(l);
+    else if (r) result.push(r);
   }
-  return Array.from(map.values());
+  return result;
 }
 
 function mergeAccounts(local: Account[], remote: Account[]): Account[] {

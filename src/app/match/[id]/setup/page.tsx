@@ -46,14 +46,30 @@ export default function SetupPage({
       return;
     }
 
-    let setups = m.beybladeSetups;
-    if (setups.length !== m.players.length) {
-      setups = m.players.map(
-        (p) =>
-          setups.find((s) => s.playerId === p.id) ?? createDefaultSetup(p.id)
-      );
-    }
-    setMatch({ ...m, beybladeSetups: setups });
+    const setups = m.players.map(
+      (p) =>
+        m.beybladeSetups.find((s) => s.playerId === p.id) ??
+        createDefaultSetup(p.id)
+    );
+
+    setMatch((prev) => {
+      if (!prev) return { ...m, beybladeSetups: setups };
+
+      const prevIds = prev.players.map((p) => p.id).join(",");
+      const nextIds = m.players.map((p) => p.id).join(",");
+      if (prevIds !== nextIds) {
+        return { ...m, beybladeSetups: setups };
+      }
+
+      return {
+        ...m,
+        beybladeSetups: m.players.map((p) => {
+          const kept = prev.beybladeSetups.find((s) => s.playerId === p.id);
+          const fromData = setups.find((s) => s.playerId === p.id)!;
+          return kept ?? fromData;
+        }),
+      };
+    });
   }, [currentAccount, data, id, hydrated, router]);
 
   if (!match || !currentAccount) {
@@ -77,7 +93,9 @@ export default function SetupPage({
           <Button
             fullWidth
             onClick={() => {
-              joinMatchById(match.id);
+              if (joinMatchById(match.id)) {
+                router.refresh();
+              }
             }}
           >
             加入這場比賽

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
-import { openJoinableMatches } from "@/lib/accounts";
+import { openJoinableMatches, setupMatchesForAccount } from "@/lib/accounts";
 import { getTodayMatches, getTodayDateString, formatDisplayDate } from "@/lib/storage";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Button } from "@/components/ui/Button";
@@ -23,7 +23,13 @@ export default function HomePage() {
     resetAll,
   } = useAppData();
   const today = getTodayDateString();
-  const todayMatches = getTodayMatches(data);
+  const preparing = currentAccount
+    ? setupMatchesForAccount(data, currentAccount.id)
+    : [];
+  const preparingIds = new Set(preparing.map((m) => m.id));
+  const todayMatches = getTodayMatches(data).filter(
+    (m) => !preparingIds.has(m.id)
+  );
   const inProgress = data.matches.filter((m) => m.status === "inProgress");
   const joinable = currentAccount
     ? openJoinableMatches(data, currentAccount.id)
@@ -59,6 +65,25 @@ export default function HomePage() {
       </div>
       {syncError && (
         <p className="text-xs text-amber-500 mb-3">{syncError}</p>
+      )}
+
+      {preparing.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-lg font-bold text-arena-neon mb-1">籌備中</h2>
+          <p className="text-xs text-gray-600 mb-3">
+            選手加入後會自動更新；可點進去查看名單與填寫陀螺。
+          </p>
+          {preparing.map((m) => (
+            <MatchCard
+              key={m.id}
+              match={m}
+              accountId={currentAccount.id}
+              onJoin={joinMatchById}
+              canDelete={isAdmin}
+              onDelete={removeMatchById}
+            />
+          ))}
+        </section>
       )}
 
       {joinable.length > 0 && (
