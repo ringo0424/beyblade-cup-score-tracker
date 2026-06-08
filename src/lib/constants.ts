@@ -1,6 +1,8 @@
 export const APP_NAME = "Beyblade Cup Score Tracker";
 export const STORAGE_KEY = "beyblade-cup-score-tracker-v1";
 export const CURRENT_ACCOUNT_STORAGE_KEY = "beyblade-current-account-id-v1";
+export const CURRENT_ACCOUNT_NAME_STORAGE_KEY =
+  "beyblade-current-account-name-v1";
 export const DEFAULT_LOCATION = "EOS";
 export const TIME_SHORTCUTS = ["12:00 PM", "4:00 PM", "6:30 PM"] as const;
 

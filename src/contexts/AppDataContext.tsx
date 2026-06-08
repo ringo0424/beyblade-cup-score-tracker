@@ -10,11 +10,16 @@ import {
   type ReactNode,
 } from "react";
 import type { Account, AppData, Beyblade, LibraryBuild, LibraryPart, Match } from "@/types";
-import { CURRENT_ACCOUNT_STORAGE_KEY } from "@/lib/constants";
+import {
+  CURRENT_ACCOUNT_NAME_STORAGE_KEY,
+  CURRENT_ACCOUNT_STORAGE_KEY,
+} from "@/lib/constants";
+import { resolveRemappedAccountId } from "@/lib/accountRemap";
 import {
   addAccount,
   authenticateAccount,
   findAccountById,
+  findAccountByName,
   isAdminAccount,
   joinMatch as joinMatchAction,
   removeAccount,
@@ -47,7 +52,7 @@ import {
 } from "@/lib/matchPhotosStorage";
 import {
   appDataChanged,
-  mergeAppData,
+  mergeAppDataWithMeta,
   shouldPushMergedToCloud,
 } from "@/lib/sync/mergeAppData";
 import {
@@ -113,9 +118,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const syncEnabled = isSyncConfigured();
   const dataOrEmpty = data ?? normalizeAppData({});
   dataRef.current = data;
-  const currentAccount = currentAccountId
-    ? findAccountById(dataOrEmpty, currentAccountId) ?? null
-    : null;
+  const currentAccount = (() => {
+    if (currentAccountId) {
+      const byId = findAccountById(dataOrEmpty, currentAccountId);
+      if (byId) return byId;
+    }
+    if (typeof window === "undefined") return null;
+    const storedName = localStorage.getItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY);
+    if (storedName) {
+      return findAccountByName(dataOrEmpty, storedName) ?? null;
+    }
+    return null;
+  })();
   const isAdmin = isAdminAccount(currentAccount);
   const toxicQuotesEnabled = Boolean(dataOrEmpty.settings?.toxicQuotesEnabled);
   const userLibrary = currentAccount
@@ -127,6 +141,37 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     syncPhotoMapFromAppData(normalized);
     setDataState(normalized);
     saveAppData(normalized);
+  }, []);
+
+  const applyMergeResult = useCallback((local: AppData, remote: AppData) => {
+    const { data: merged, accountIdRemap } = mergeAppDataWithMeta(
+      local,
+      remote
+    );
+    const storedId = readStoredAccountId();
+    if (storedId && accountIdRemap.size > 0) {
+      const remapped = resolveRemappedAccountId(accountIdRemap, storedId);
+      if (remapped !== storedId) {
+        localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, remapped);
+        setCurrentAccountId(remapped);
+      }
+    }
+    const resolvedId = storedId
+      ? resolveRemappedAccountId(accountIdRemap, storedId)
+      : null;
+    const account = resolvedId
+      ? (findAccountById(merged, resolvedId) ??
+        (typeof window !== "undefined"
+          ? findAccountByName(
+              merged,
+              localStorage.getItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY) ?? ""
+            )
+          : undefined))
+      : undefined;
+    if (account) {
+      localStorage.setItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY, account.name);
+    }
+    return merged;
   }, []);
 
   const scheduleCloudPush = useCallback(
@@ -144,7 +189,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           applyingRemoteRef.current = true;
           revisionRef.current = result.revision;
           const localNow = attachLocalPhotos(normalizeAppData(next));
-          const merged = mergeAppData(localNow, result.payload);
+          const merged = applyMergeResult(localNow, result.payload);
           persistLocal(merged);
           applyingRemoteRef.current = false;
           setSyncError("已與雲端合併最新資料（保留本機較新紀錄）");
@@ -157,7 +202,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }
       }, 350);
     },
-    [persistLocal, syncEnabled]
+    [applyMergeResult, persistLocal, syncEnabled]
   );
 
   type AppDataUpdater = AppData | ((prev: AppData) => AppData);
@@ -193,7 +238,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if ("conflict" in result && result.conflict) {
           revisionRef.current = result.revision;
           const local = attachLocalPhotos(dataRef.current ?? loadAppData());
-          current = mergeAppData(local, result.payload);
+          current = applyMergeResult(local, result.payload);
           applyingRemoteRef.current = true;
           persistLocal(current);
           applyingRemoteRef.current = false;
@@ -207,7 +252,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       return { ok: false, error: "同步衝突次數過多，請稍後再試" };
     },
-    [persistLocal]
+    [applyMergeResult, persistLocal]
   );
 
   const refreshCloudSync = useCallback(async (): Promise<string> => {
@@ -234,7 +279,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       const local = attachLocalPhotos(dataRef.current ?? loadAppData());
       const remote = attachLocalPhotos(fetched.payload);
-      const merged = mergeAppData(local, remote);
+      const merged = applyMergeResult(local, remote);
 
       applyingRemoteRef.current = true;
       revisionRef.current = fetched.revision;
@@ -256,7 +301,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setSyncRefreshing(false);
     }
-  }, [forcePushToCloud, persistLocal, syncEnabled]);
+  }, [applyMergeResult, forcePushToCloud, persistLocal, syncEnabled]);
 
   useEffect(() => {
     const local = attachLocalPhotos(loadAppData());
@@ -277,7 +322,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       applyingRemoteRef.current = true;
       revisionRef.current = result.revision;
       const remote = attachLocalPhotos(result.payload);
-      const merged = mergeAppData(local, remote);
+      const merged = applyMergeResult(local, remote);
       persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
@@ -285,7 +330,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         scheduleCloudPush(merged);
       }
     });
-  }, [persistLocal, scheduleCloudPush, syncEnabled]);
+  }, [applyMergeResult, persistLocal, scheduleCloudPush, syncEnabled]);
 
   useEffect(() => {
     if (!syncEnabled) return;
@@ -297,7 +342,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         dataRef.current ?? loadAppData()
       );
       const remote = attachLocalPhotos(normalizeAppData(payload));
-      const merged = mergeAppData(local, remote);
+      const merged = applyMergeResult(local, remote);
       persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
@@ -305,10 +350,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         scheduleCloudPush(merged);
       }
     });
-  }, [persistLocal, scheduleCloudPush, syncEnabled]);
+  }, [applyMergeResult, persistLocal, scheduleCloudPush, syncEnabled]);
 
-  const loginAs = useCallback((accountId: string) => {
+  const loginAs = useCallback((accountId: string, accountName?: string) => {
     localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, accountId);
+    if (accountName) {
+      localStorage.setItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY, accountName);
+    }
     setCurrentAccountId(accountId);
   }, []);
 
@@ -338,6 +386,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
+    localStorage.removeItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY);
     setCurrentAccountId(null);
   }, []);
 
@@ -347,7 +396,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const snapshot = dataRef.current ?? loadAppData();
       const account = authenticateAccount(snapshot, name, password);
       if (!account) return "帳號或密碼錯誤";
-      loginAs(account.id);
+      loginAs(account.id, account.name);
       return null;
     },
     [hydrated, loginAs]
@@ -361,7 +410,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const snapshot = dataRef.current ?? loadAppData();
       const existingLogin = authenticateAccount(snapshot, name, password);
       if (existingLogin) {
-        loginAs(existingLogin.id);
+        loginAs(existingLogin.id, existingLogin.name);
         return null;
       }
       const dup = snapshot.accounts.find(
@@ -375,7 +424,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         createdId = next.accounts[next.accounts.length - 1].id;
         return next;
       });
-      loginAs(createdId);
+      loginAs(createdId, name.trim());
       return null;
     },
     [hydrated, loginAs, mutate]

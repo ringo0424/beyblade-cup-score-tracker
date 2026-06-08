@@ -3,11 +3,12 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
-import { getMatch } from "@/lib/storage";
+import { resolveMatch } from "@/lib/storage";
 import {
   canJoinMatch,
   getPlayerForAccount,
   isJoinedMatch,
+  isMatchHost,
   minPlayersForMatch,
 } from "@/lib/accounts";
 import { createDefaultSetup } from "@/lib/beyblade";
@@ -40,7 +41,7 @@ export default function SetupPage({
 
   useEffect(() => {
     if (!hydrated || !currentAccount) return;
-    const m = getMatch(data, id);
+    const m = resolveMatch(data, id);
     if (!m) {
       router.replace("/");
       return;
@@ -76,10 +77,22 @@ export default function SetupPage({
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
   }
 
-  const joined = isJoinedMatch(match, currentAccount.id);
-  const myPlayer = getPlayerForAccount(match, currentAccount.id);
+  const joined = isJoinedMatch(
+    match,
+    currentAccount.id,
+    currentAccount.name
+  );
+  const myPlayer = getPlayerForAccount(
+    match,
+    currentAccount.id,
+    currentAccount.name
+  );
   const canJoin = canJoinMatch(match, currentAccount.id);
-  const isHost = match.hostAccountId === currentAccount.id;
+  const isHost = isMatchHost(
+    match,
+    currentAccount.id,
+    currentAccount.name
+  );
   const minPlayers = minPlayersForMatch(match);
 
   if (!joined && canJoin) {
@@ -129,10 +142,36 @@ export default function SetupPage({
     );
   }
 
-  const setupIndex = match.beybladeSetups.findIndex(
-    (s) => s.playerId === myPlayer!.id
-  );
-  const setup = match.beybladeSetups[setupIndex];
+  const setupIndex = myPlayer
+    ? match.beybladeSetups.findIndex((s) => s.playerId === myPlayer.id)
+    : -1;
+  const setup =
+    setupIndex >= 0
+      ? match.beybladeSetups[setupIndex]
+      : myPlayer
+        ? createDefaultSetup(myPlayer.id)
+        : null;
+
+  if (!myPlayer || !setup) {
+    return (
+      <div>
+        <h2 className="text-xl font-bold mb-2">{match.name}</h2>
+        <Card>
+          <p className="text-gray-500 text-center py-4">
+            無法載入你的選手資料，請返回首頁再試
+          </p>
+        </Card>
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mt-4"
+          onClick={() => router.push("/")}
+        >
+          返回首頁
+        </Button>
+      </div>
+    );
+  }
 
   const updateSetup = (updated: BeybladeSetup) => {
     const setups = [...match.beybladeSetups];

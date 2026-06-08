@@ -8,6 +8,7 @@ import {
   SCORE_TARGET_OPTIONS,
   TIME_SHORTCUTS,
 } from "@/lib/constants";
+import { createDefaultSetup } from "@/lib/beyblade";
 import { generateId } from "@/lib/id";
 import { generateMatchName } from "@/lib/matchName";
 import { getTodayDateString } from "@/lib/storage";
@@ -52,7 +53,7 @@ export default function CreateMatchPage() {
       scoreTarget,
       matchType,
       players: [hostPlayer],
-      beybladeSetups: [],
+      beybladeSetups: [createDefaultSetup(hostPlayer.id)],
       pairings: [],
       rounds: [],
       status: "setup",

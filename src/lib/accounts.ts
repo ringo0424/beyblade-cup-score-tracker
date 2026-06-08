@@ -124,13 +124,40 @@ export function rebuildMatchPlayers(match: Match, players: Player[]): Match {
 
 export function getPlayerForAccount(
   match: Match,
-  accountId: string
+  accountId: string,
+  accountName?: string
 ): Player | undefined {
-  return match.players.find((p) => p.accountId === accountId);
+  const byId = match.players.find((p) => p.accountId === accountId);
+  if (byId) return byId;
+  if (!accountName) return undefined;
+  const key = normalizeAccountName(accountName).toLowerCase();
+  return match.players.find(
+    (p) => normalizeAccountName(p.name).toLowerCase() === key
+  );
 }
 
-export function isJoinedMatch(match: Match, accountId: string): boolean {
-  return Boolean(getPlayerForAccount(match, accountId));
+export function isJoinedMatch(
+  match: Match,
+  accountId: string,
+  accountName?: string
+): boolean {
+  return Boolean(getPlayerForAccount(match, accountId, accountName));
+}
+
+export function isMatchHost(
+  match: Match,
+  accountId: string,
+  accountName?: string
+): boolean {
+  if (match.hostAccountId === accountId) return true;
+  if (!accountName) return false;
+  const key = normalizeAccountName(accountName).toLowerCase();
+  const hostPlayer = match.hostAccountId
+    ? match.players.find((p) => p.accountId === match.hostAccountId)
+    : match.players[0];
+  return Boolean(
+    hostPlayer && normalizeAccountName(hostPlayer.name).toLowerCase() === key
+  );
 }
 
 export function canJoinMatch(match: Match, accountId: string): boolean {

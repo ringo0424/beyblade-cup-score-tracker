@@ -1,13 +1,12 @@
+import { rebuildMatchPlayers } from "@/lib/accounts";
 import {
-  isAdminAccount,
-  normalizeAccountName,
-  rebuildMatchPlayers,
-} from "@/lib/accounts";
+  applyAccountIdRemap,
+  mergeAccountsWithRemap,
+} from "@/lib/accountRemap";
 import { deletedIdSet, mergeDeletedIds } from "@/lib/deletions";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type {
   AppData,
-  Account,
   BeybladeSetup,
   FighterProfile,
   Match,
@@ -17,10 +16,6 @@ import type {
 
 function playerKey(p: Player): string {
   return p.accountId ?? p.id;
-}
-
-function accountNameKey(a: Account): string {
-  return normalizeAccountName(a.name).toLowerCase();
 }
 
 function mergePlayers(a: Player[], b: Player[]): Player[] {
@@ -48,16 +43,6 @@ function pickSetup(
   const found = candidates.filter(Boolean) as BeybladeSetup[];
   if (found.length === 0) return createDefaultSetup(playerId);
   return found.sort((a, b) => setupScore(b) - setupScore(a))[0];
-}
-
-function mergeAccountPair(a: Account, b: Account): Account {
-  const base = a.createdAt >= b.createdAt ? a : b;
-  const other = a.createdAt >= b.createdAt ? b : a;
-  return {
-    ...base,
-    passwordHash: base.passwordHash || other.passwordHash,
-    isAdmin: base.isAdmin || other.isAdmin,
-  };
 }
 
 function mergeSingleMatch(local: Match, remote: Match): Match {
@@ -131,45 +116,6 @@ function mergeMatches(
   return result;
 }
 
-/** 以 id 與帳號名稱合併，避免漏掉其他裝置註冊的帳號 */
-function mergeAccounts(
-  local: Account[],
-  remote: Account[],
-  deletedAccountIds: Set<string>
-): Account[] {
-  const byId = new Map<string, Account>();
-
-  const ingest = (incoming: Account) => {
-    if (
-      deletedAccountIds.has(incoming.id) &&
-      !isAdminAccount(incoming)
-    ) {
-      return;
-    }
-    const byName = [...byId.values()].find(
-      (x) => accountNameKey(x) === accountNameKey(incoming)
-    );
-    const bySameId = byId.get(incoming.id);
-    const existing = bySameId ?? byName;
-
-    if (!existing) {
-      byId.set(incoming.id, incoming);
-      return;
-    }
-
-    const merged = mergeAccountPair(existing, incoming);
-    if (existing.id !== incoming.id) {
-      byId.delete(existing.id);
-    }
-    byId.set(merged.id, merged);
-  };
-
-  for (const a of remote) ingest(a);
-  for (const a of local) ingest(a);
-
-  return Array.from(byId.values());
-}
-
 function mergeLibraries(
   local: UserLibrary[],
   remote: UserLibrary[]
@@ -218,8 +164,16 @@ function mergeFighters(
   return Array.from(map.values());
 }
 
+export interface MergeAppDataResult {
+  data: AppData;
+  accountIdRemap: Map<string, string>;
+}
+
 /** 合併本機與雲端，避免較新的本機資料被舊雲端覆蓋。 */
-export function mergeAppData(local: AppData, remote: AppData): AppData {
+export function mergeAppDataWithMeta(
+  local: AppData,
+  remote: AppData
+): MergeAppDataResult {
   const deletedMatchIds = mergeDeletedIds(
     local.deletedMatchIds,
     remote.deletedMatchIds
@@ -228,7 +182,15 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
     local.deletedAccountIds,
     remote.deletedAccountIds
   );
-  return {
+  const deletedAccounts = deletedIdSet(deletedAccountIds);
+
+  const { accounts, idRemap } = mergeAccountsWithRemap(
+    local.accounts,
+    remote.accounts,
+    deletedAccounts
+  );
+
+  const base: AppData = {
     eventDays:
       local.eventDays.length >= remote.eventDays.length
         ? local.eventDays
@@ -238,13 +200,9 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
       remote.matches,
       deletedIdSet(deletedMatchIds)
     ),
-    accounts: mergeAccounts(
-      local.accounts,
-      remote.accounts,
-      deletedIdSet(deletedAccountIds)
-    ),
+    accounts,
     libraries: mergeLibraries(local.libraries, remote.libraries).filter(
-      (l) => !deletedIdSet(deletedAccountIds).has(l.accountId)
+      (l) => !deletedAccounts.has(l.accountId)
     ),
     fighters: mergeFighters(local.fighters ?? [], remote.fighters ?? []),
     settings: { ...remote.settings, ...local.settings },
@@ -252,6 +210,15 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
     deletedAccountIds,
     version: Math.max(local.version ?? 0, remote.version ?? 0, 4),
   };
+
+  return {
+    data: applyAccountIdRemap(base, idRemap),
+    accountIdRemap: idRemap,
+  };
+}
+
+export function mergeAppData(local: AppData, remote: AppData): AppData {
+  return mergeAppDataWithMeta(local, remote).data;
 }
 
 export function appDataChanged(a: AppData, b: AppData): boolean {

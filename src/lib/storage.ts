@@ -64,6 +64,14 @@ export function getMatch(data: AppData, id: string): Match | undefined {
   return data.matches.find((m) => m.id === id);
 }
 
+/** React 狀態可能尚未更新時，從 localStorage 再查一次 */
+export function resolveMatch(data: AppData, id: string): Match | undefined {
+  const fromState = getMatch(data, id);
+  if (fromState) return fromState;
+  if (typeof window === "undefined") return undefined;
+  return getMatch(loadAppData(), id);
+}
+
 export function upsertMatch(data: AppData, match: Match): AppData {
   const exists = data.matches.some((m) => m.id === match.id);
   const matches = exists
@@ -87,7 +95,12 @@ export function upsertMatch(data: AppData, match: Match): AppData {
     eventDays = eventDays.map((e) => (e.id === day!.id ? day! : e));
   }
 
-  return { ...data, matches, eventDays };
+  const linkedMatch = { ...match, eventDayId: day.id };
+  const finalMatches = exists
+    ? matches.map((m) => (m.id === match.id ? linkedMatch : m))
+    : [...matches.slice(0, -1), linkedMatch];
+
+  return { ...data, matches: finalMatches, eventDays };
 }
 
 export function deleteMatch(data: AppData, matchId: string): AppData {
