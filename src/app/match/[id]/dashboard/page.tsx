@@ -14,6 +14,7 @@ import {
   getTargetScore,
 } from "@/lib/scoring";
 import type { FinishType, Match } from "@/types";
+import { resolveFighterLabel } from "@/lib/fighters/label";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
 import { MatchEndScreen } from "@/components/match/MatchEndScreen";
 import { ReplayConfirmModal } from "@/components/match/ReplayConfirmModal";
@@ -155,8 +156,9 @@ export default function DashboardPage({
       <Card className="mb-4 text-center">
         <p className="text-xs text-gray-500 uppercase">當前對戰</p>
         <p className="text-lg font-bold mt-1">
-          {playerA.name}{" "}
-          <span className="text-arena-purple">vs</span> {playerB.name}
+          {resolveFighterLabel(data, playerA.name)}{" "}
+          <span className="text-arena-purple">vs</span>{" "}
+          {resolveFighterLabel(data, playerB.name)}
         </p>
         {target !== null && (
           <p className="text-xs text-gray-600 mt-1">目標 {target} 分</p>
@@ -167,6 +169,7 @@ export default function DashboardPage({
         <PlayerScoreCard
           side="A"
           player={playerA}
+          label={resolveFighterLabel(data, playerA.name)}
           score={pairing.scoreA}
           setup={setupA}
           isWinner={battleDone && pairing.winnerPlayerId === playerA.id}
@@ -176,6 +179,7 @@ export default function DashboardPage({
         <PlayerScoreCard
           side="B"
           player={playerB}
+          label={resolveFighterLabel(data, playerB.name)}
           score={pairing.scoreB}
           setup={setupB}
           isWinner={battleDone && pairing.winnerPlayerId === playerB.id}

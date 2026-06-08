@@ -20,6 +20,7 @@ import {
   getLeaderboard,
 } from "@/lib/scoring";
 import type { FinishType, Match } from "@/types";
+import { resolveFighterLabel } from "@/lib/fighters/label";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
 import { Leaderboard } from "@/components/match/Leaderboard";
 import { MatchEndScreen } from "@/components/match/MatchEndScreen";
@@ -178,8 +179,9 @@ export default function RoundRobinPage({
       <Card className="mb-3">
         <p className="text-xs text-gray-500">當前組合 (#{match.currentPairingIndex + 1})</p>
         <p className="text-lg font-bold">
-          {playerA.name}{" "}
-          <span className="text-arena-purple">vs</span> {playerB.name}
+          {resolveFighterLabel(data, playerA.name)}{" "}
+          <span className="text-arena-purple">vs</span>{" "}
+          {resolveFighterLabel(data, playerB.name)}
         </p>
       </Card>
 
@@ -187,6 +189,7 @@ export default function RoundRobinPage({
         <PlayerScoreCard
           side="A"
           player={playerA}
+          label={resolveFighterLabel(data, playerA.name)}
           score={pairing!.scoreA}
           setup={setupA}
           isWinner={battleDone && pairing!.winnerPlayerId === playerA.id}
@@ -196,6 +199,7 @@ export default function RoundRobinPage({
         <PlayerScoreCard
           side="B"
           player={playerB}
+          label={resolveFighterLabel(data, playerB.name)}
           score={pairing!.scoreB}
           setup={setupB}
           isWinner={battleDone && pairing!.winnerPlayerId === playerB.id}

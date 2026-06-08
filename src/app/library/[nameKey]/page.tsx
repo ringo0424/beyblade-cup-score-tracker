@@ -4,6 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
 import { FighterAvatar } from "@/components/fighters/FighterAvatar";
+import { FighterName } from "@/components/fighters/FighterName";
 import { FighterLibraryEditor } from "@/components/fighters/FighterLibraryEditor";
 
 export default function FighterLibraryPage({
@@ -50,7 +51,7 @@ export default function FighterLibraryPage({
       </Link>
       <h2 className="text-xl font-bold mt-2 mb-1 flex items-center gap-2">
         <FighterAvatar icon={icon} name={displayName} size="sm" />
-        {displayName}
+        <FighterName name={displayName} title={profile.title} />
       </h2>
       <p className="text-sm text-gray-500 mb-4">
         為此選手管理陀螺 SET UP 與零件組合。

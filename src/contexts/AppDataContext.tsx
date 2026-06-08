@@ -21,6 +21,7 @@ import {
   getFighterLibrary,
   listRegisteredFighters,
   registerFighter,
+  updateFighter,
 } from "@/lib/fighters/registry";
 import {
   isAdminLoggedIn,
@@ -79,7 +80,11 @@ interface AppDataContextValue {
   sharedLibrary: ReturnType<typeof getSharedLibrary>;
   fighterNames: string[];
   registeredFighters: ReturnType<typeof listRegisteredFighters>;
-  registerFighterByName: (name: string) => void;
+  registerFighterByName: (name: string, title?: string) => void;
+  updateFighterProfile: (
+    nameKey: string,
+    patch: { displayName: string; title?: string }
+  ) => string | null;
   getLibraryForFighter: (nameKey: string) => ReturnType<typeof getFighterLibrary>;
   saveMatch: (match: Match) => void;
   removeMatchById: (matchId: string) => void;
@@ -100,7 +105,7 @@ interface AppDataContextValue {
   removeBuildFromLibrary: (buildId: string, ownerId?: string) => void;
   toxicQuotesEnabled: boolean;
   setToxicQuotesEnabled: (enabled: boolean) => void;
-  setFighterIcon: (displayName: string, icon: string | undefined) => void;
+  setFighterIcon: (nameKey: string, icon: string | undefined) => void;
   adminLoggedIn: boolean;
   loginAdminWithPassword: (password: string) => string | null;
   logoutAdminSession: () => void;
@@ -390,8 +395,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const registerFighterByName = useCallback(
-    (name: string) => {
-      mutate((d) => registerFighter(d, name));
+    (name: string, title?: string) => {
+      mutate((d) => registerFighter(d, name, title));
+    },
+    [mutate]
+  );
+
+  const updateFighterProfile = useCallback(
+    (nameKey: string, patch: { displayName: string; title?: string }): string | null => {
+      const trimmed = patch.displayName.trim();
+      if (!trimmed) return "選手名不可為空";
+      mutate((d) => updateFighter(d, nameKey, patch));
+      return null;
     },
     [mutate]
   );
@@ -431,8 +446,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const setFighterIcon = useCallback(
-    (displayName: string, icon: string | undefined) => {
-      mutate((d) => setFighterIconAction(d, displayName, icon));
+    (nameKey: string, icon: string | undefined) => {
+      mutate((d) => setFighterIconAction(d, nameKey, icon));
     },
     [mutate]
   );
@@ -468,6 +483,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     fighterNames,
     registeredFighters,
     registerFighterByName,
+    updateFighterProfile,
     getLibraryForFighter,
     saveMatch,
     removeMatchById,

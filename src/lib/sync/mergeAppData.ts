@@ -165,6 +165,7 @@ function mergeFighters(
       ...existing,
       ...f,
       icon: f.icon ?? existing.icon,
+      title: f.title ?? existing.title,
     });
   }
   return Array.from(map.values());

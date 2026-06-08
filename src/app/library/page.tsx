@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useAppData } from "@/hooks/useAppData";
 import { FighterAvatar } from "@/components/fighters/FighterAvatar";
+import { FighterName } from "@/components/fighters/FighterName";
 import { computeFighterStats } from "@/lib/fighters/stats";
 import { Card } from "@/components/ui/Card";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
@@ -36,7 +37,7 @@ export default function LibraryPage() {
       {registeredFighters.length === 0 ? (
         <Card>
           <p className="text-center text-gray-500 py-6 text-sm">
-            尚無選手。請先到「選手」頁新增，或於建立比賽時加入名稱。
+            尚無選手。請先到「選手」頁新增，或於比賽設定頁加入。
           </p>
           <Link
             href="/fighters"
@@ -65,7 +66,10 @@ export default function LibraryPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-arena-neon truncate">
-                      {fighter.displayName}
+                      <FighterName
+                        name={fighter.displayName}
+                        title={fighter.title ?? stats?.title}
+                      />
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       已儲存 {buildCount} 組陀螺

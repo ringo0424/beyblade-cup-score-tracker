@@ -1,6 +1,5 @@
 import type { AppData, FighterProfile } from "@/types";
 import { generateId } from "@/lib/id";
-import { fighterDisplayName, fighterNameKey } from "./keys";
 
 function normalizeAvatar(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -11,32 +10,29 @@ function normalizeAvatar(value: string | undefined): string | undefined {
 
 export function setFighterIcon(
   data: AppData,
-  displayName: string,
-  icon: string | undefined,
-  accountId?: string
+  nameKey: string,
+  icon: string | undefined
 ): AppData {
-  const nameKey = fighterNameKey(displayName);
   const normalized = normalizeAvatar(icon);
   const fighters = [...(data.fighters ?? [])];
   const idx = fighters.findIndex((f) => f.nameKey === nameKey);
 
-  if (!normalized) {
-    if (idx >= 0) {
-      fighters[idx] = { ...fighters[idx], icon: undefined };
-    }
+  if (idx < 0) {
+    if (!normalized) return data;
+    fighters.push({
+      id: generateId(),
+      nameKey,
+      displayName: nameKey,
+      icon: normalized,
+    });
     return { ...data, fighters };
   }
 
-  const profile: FighterProfile = {
-    id: idx >= 0 ? fighters[idx].id : generateId(),
-    nameKey,
-    displayName: fighterDisplayName(displayName),
-    accountId: accountId ?? fighters[idx]?.accountId,
-    icon: normalized,
-  };
+  if (!normalized) {
+    fighters[idx] = { ...fighters[idx], icon: undefined };
+    return { ...data, fighters };
+  }
 
-  if (idx >= 0) fighters[idx] = profile;
-  else fighters.push(profile);
-
+  fighters[idx] = { ...fighters[idx], icon: normalized };
   return { ...data, fighters };
 }

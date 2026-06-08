@@ -4,8 +4,12 @@ import { use, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
+import { AdminFighterEditor } from "@/components/fighters/AdminFighterEditor";
 import { AvatarUploader } from "@/components/fighters/AvatarUploader";
 import { FighterAvatar } from "@/components/fighters/FighterAvatar";
+import { FighterName } from "@/components/fighters/FighterName";
+import { formatFighterProfile } from "@/lib/fighters/label";
+import { fighterNameKey } from "@/lib/fighters/keys";
 import { computeFighterStats } from "@/lib/fighters/stats";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -24,12 +28,12 @@ export default function FighterDetailPage({
     registeredFighters,
     getLibraryForFighter,
     setFighterIcon,
+    updateFighterProfile,
     adminLoggedIn,
     deleteFighterByNameKey,
   } = useAppData();
 
   const profile = registeredFighters.find((f) => f.nameKey === nameKey);
-  const displayName = profile?.displayName ?? nameKey;
   const library = getLibraryForFighter(nameKey);
 
   const stats = useMemo(() => {
@@ -37,6 +41,8 @@ export default function FighterDetailPage({
   }, [data, nameKey]);
 
   const icon = stats?.icon ?? profile?.icon;
+  const title = profile?.title ?? stats?.title;
+  const displayName = profile?.displayName ?? nameKey;
 
   if (!hydrated) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
@@ -53,6 +59,18 @@ export default function FighterDetailPage({
     );
   }
 
+  const handleAdminSave = (patch: { displayName: string; title: string }) => {
+    const err = updateFighterProfile(nameKey, patch);
+    if (err) {
+      alert(err);
+      return;
+    }
+    const newKey = fighterNameKey(patch.displayName);
+    if (newKey !== nameKey) {
+      router.replace(`/fighters/${encodeURIComponent(newKey)}`);
+    }
+  };
+
   return (
     <div>
       <Link href="/fighters" className="text-sm text-gray-500 hover:text-arena-neon">
@@ -60,18 +78,22 @@ export default function FighterDetailPage({
       </Link>
       <h2 className="text-xl font-bold mt-2 mb-1 flex items-center gap-2">
         <FighterAvatar icon={icon} name={displayName} size="md" />
-        {displayName}
+        <FighterName name={displayName} title={title} />
       </h2>
       <p className="text-sm text-gray-500 mb-4">
         冠軍 {stats?.championCount ?? 0} · 亞軍 {stats?.runnerUpCount ?? 0}
         {(stats?.matchCount ?? 0) > 0 ? ` · 參賽 ${stats!.matchCount} 場` : ""}
       </p>
 
+      {adminLoggedIn && (
+        <AdminFighterEditor fighter={profile} onSave={handleAdminSave} />
+      )}
+
       <AvatarUploader
         displayName={displayName}
         icon={icon}
-        onSave={(dataUrl) => setFighterIcon(displayName, dataUrl)}
-        onClear={() => setFighterIcon(displayName, undefined)}
+        onSave={(dataUrl) => setFighterIcon(nameKey, dataUrl)}
+        onClear={() => setFighterIcon(nameKey, undefined)}
       />
 
       <Card className="mb-4">
@@ -113,7 +135,7 @@ export default function FighterDetailPage({
           onClick={() => {
             if (
               confirm(
-                `確定刪除選手「${displayName}」？陀螺庫資料一併移除。`
+                `確定刪除選手「${formatFighterProfile(profile)}」？陀螺庫資料一併移除。`
               )
             ) {
               deleteFighterByNameKey(nameKey);

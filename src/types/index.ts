@@ -182,7 +182,10 @@ export interface Account {
 export interface FighterProfile {
   id: string;
   nameKey: string;
+  /** 選手名 */
   displayName: string;
+  /** 稱號（選填） */
+  title?: string;
   accountId?: string;
   /** Emoji 或頭像 data URL（PNG/JPG/GIF） */
   icon?: string;

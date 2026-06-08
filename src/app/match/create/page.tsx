@@ -3,8 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
-import { normalizePlayerName } from "@/lib/accounts";
-import { createDefaultSetup } from "@/lib/beyblade";
 import {
   DEFAULT_LOCATION,
   SCORE_TARGET_OPTIONS,
@@ -13,31 +11,19 @@ import {
 import { generateId } from "@/lib/id";
 import { generateMatchName } from "@/lib/matchName";
 import { getTodayDateString } from "@/lib/storage";
-import type { Match, MatchType, Player, ScoreTarget } from "@/types";
+import type { Match, MatchType, ScoreTarget } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-function parsePlayerNames(raw: string): string[] {
-  const names = raw
-    .split(/[,，\n]/)
-    .map((s) => normalizePlayerName(s))
-    .filter(Boolean);
-  return [...new Set(names.map((n) => n.toLowerCase()))].map((lower) =>
-    names.find((n) => n.toLowerCase() === lower)!
-  );
-}
-
 export default function CreateMatchPage() {
   const router = useRouter();
-  const { data, saveMatch, registerFighterByName, fighterNames } = useAppData();
+  const { data, saveMatch } = useAppData();
 
   const [date, setDate] = useState(getTodayDateString());
   const [time, setTime] = useState("4:00 PM");
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [scoreTarget, setScoreTarget] = useState<ScoreTarget>(4);
   const [matchType, setMatchType] = useState<MatchType>("1v1");
-  const [playerInput, setPlayerInput] = useState("");
-  const [selectedNames, setSelectedNames] = useState<string[]>([]);
 
   const autoName = useMemo(
     () => generateMatchName(time, location, data.matches),
@@ -46,30 +32,7 @@ export default function CreateMatchPage() {
 
   const canSubmit = Boolean(time.trim() && location.trim());
 
-  const addName = (name: string) => {
-    const n = normalizePlayerName(name);
-    if (!n || selectedNames.some((x) => x.toLowerCase() === n.toLowerCase())) {
-      return;
-    }
-    setSelectedNames((prev) => [...prev, n]);
-    setPlayerInput("");
-  };
-
   const handleSubmit = () => {
-    const fromInput = parsePlayerNames(playerInput);
-    const allNames = [
-      ...selectedNames,
-      ...fromInput.filter(
-        (n) => !selectedNames.some((s) => s.toLowerCase() === n.toLowerCase())
-      ),
-    ];
-
-    const players: Player[] = allNames.map((name) => ({
-      id: generateId(),
-      name,
-    }));
-    const beybladeSetups = players.map((p) => createDefaultSetup(p.id));
-
     const match: Match = {
       id: generateId(),
       eventDayId: generateId(),
@@ -79,8 +42,8 @@ export default function CreateMatchPage() {
       location,
       scoreTarget,
       matchType,
-      players,
-      beybladeSetups,
+      players: [],
+      beybladeSetups: [],
       pairings: [],
       rounds: [],
       status: "setup",
@@ -91,7 +54,6 @@ export default function CreateMatchPage() {
     };
 
     saveMatch(match);
-    for (const name of allNames) registerFighterByName(name);
     router.push(`/match/${match.id}/setup`);
   };
 
@@ -99,35 +61,8 @@ export default function CreateMatchPage() {
     <div>
       <h2 className="text-xl font-bold mb-4">建立新比賽</h2>
       <p className="text-sm text-gray-500 mb-4">
-        可直接加入選手名稱，建立後為每人填寫陀螺；循環賽開始後可自選每場對戰組合。
+        建立後於下一頁加入選手並填寫陀螺；循環賽開始後可自選每場對戰組合。
       </p>
-
-      <Card className="mb-4">
-        <label className="label-arena">選手（可選，逗號或換行分隔）</label>
-        <textarea
-          className="input-arena min-h-[72px] mb-2"
-          value={playerInput}
-          onChange={(e) => setPlayerInput(e.target.value)}
-          placeholder="例：小明, 小華, 阿強"
-        />
-        <div className="flex flex-wrap gap-2 mb-2">
-          {fighterNames.map((name) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => addName(name)}
-              className="text-xs px-2.5 py-1 rounded-full border border-arena-border text-gray-400 hover:border-arena-neon hover:text-arena-neon"
-            >
-              ＋ {name}
-            </button>
-          ))}
-        </div>
-        {selectedNames.length > 0 && (
-          <p className="text-xs text-arena-neon">
-            已選：{selectedNames.join(" · ")}
-          </p>
-        )}
-      </Card>
 
       <Card className="mb-4">
         <label className="label-arena">日期</label>
@@ -228,7 +163,7 @@ export default function CreateMatchPage() {
       </Card>
 
       <Button fullWidth disabled={!canSubmit} onClick={handleSubmit}>
-        建立並設定陀螺
+        建立並加入選手
       </Button>
     </div>
   );

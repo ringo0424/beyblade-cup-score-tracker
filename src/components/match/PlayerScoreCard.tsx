@@ -16,6 +16,7 @@ const finishTypes: FinishType[] = [
 
 export function PlayerScoreCard({
   player,
+  label,
   score,
   setup,
   isWinner,
@@ -24,6 +25,7 @@ export function PlayerScoreCard({
   disabled,
 }: {
   player: Player;
+  label?: string;
   score: number;
   setup?: BeybladeSetup;
   isWinner?: boolean;
@@ -59,7 +61,7 @@ export function PlayerScoreCard({
           <span className="text-xs text-arena-neon font-bold">領先</span>
         )}
       </div>
-      <h3 className="font-bold text-lg truncate">{player.name}</h3>
+      <h3 className="font-bold text-lg truncate">{label ?? player.name}</h3>
       <p className="text-4xl font-black text-arena-neon tabular-nums mt-2">
         {score}
       </p>

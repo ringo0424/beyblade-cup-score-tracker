@@ -6,6 +6,7 @@ import { fighterDisplayName, fighterNameKey } from "./keys";
 export interface FighterStatRow {
   nameKey: string;
   displayName: string;
+  title?: string;
   accountId?: string;
   icon?: string;
   championCount: number;
@@ -65,6 +66,7 @@ function applyProfileIcons(
     const row = map.get(p.nameKey);
     if (row) {
       if (p.icon) row.icon = p.icon;
+      if (p.title) row.title = p.title;
       if (p.accountId) row.accountId = p.accountId;
       row.displayName = p.displayName || row.displayName;
     } else if (p.icon) {
