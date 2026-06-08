@@ -7,7 +7,6 @@ import { minPlayersForMatch } from "@/lib/accounts";
 import { hasCelebrationPhotos } from "@/lib/matchPhotos";
 import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationBackground";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 
 export function MatchCard({
   match,
@@ -42,90 +41,96 @@ export function MatchCard({
   const minP = minPlayersForMatch(match);
   const withBg = hasCelebrationPhotos(match.celebrationPhotos);
 
-  const inner = (
-    <>
-      <div className="flex justify-between items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-arena-neon">{match.name}</h3>
-          <p className="text-sm text-gray-400 mt-1">
-            {formatDisplayDate(match.date)} · {match.time} · {match.location}
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {match.players.length > 0
-              ? match.players.map((p) => p.name).join(" · ")
-              : "尚無選手"}
-          </p>
-          {match.status === "setup" && (
-            <p className="text-xs text-arena-neon/80 mt-1">
-              {match.matchType === "1v1" ? "1v1" : "循環賽"} · 已{" "}
-              {match.players.length} 人
-              {match.players.length < minP
-                ? `（尚缺 ${minP - match.players.length} 人）`
-                : "（可開始）"}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${
-              match.status === "completed"
-                ? "bg-green-950 text-green-400"
-                : match.status === "inProgress"
-                  ? "bg-arena-neon/20 text-arena-neon"
-                  : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            {statusLabel}
-          </span>
-          {onDelete && (
-            <button
-              type="button"
-              className="text-xs text-red-400"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (
-                  confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)
-                ) {
-                  onDelete(match.id);
-                }
-              }}
-            >
-              刪除
-            </button>
-          )}
-        </div>
-      </div>
+  const handleDelete = () => {
+    if (!onDelete) return;
+    if (confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)) {
+      onDelete(match.id);
+    }
+  };
 
+  const body = (
+    <div className="flex justify-between items-start gap-2 pr-10">
+      <div className="min-w-0 flex-1">
+        <h3 className="font-bold text-arena-neon">{match.name}</h3>
+        <p className="text-sm text-gray-400 mt-1">
+          {formatDisplayDate(match.date)} · {match.time} · {match.location}
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          {match.players.length > 0
+            ? match.players.map((p) => p.name).join(" · ")
+            : "尚無選手"}
+        </p>
+        {match.status === "setup" && (
+          <p className="text-xs text-arena-neon/80 mt-1">
+            {match.matchType === "1v1" ? "1v1" : "循環賽"} · 已{" "}
+            {match.players.length} 人
+            {match.players.length < minP
+              ? `（尚缺 ${minP - match.players.length} 人）`
+              : "（可開始）"}
+          </p>
+        )}
+      </div>
+      <span
+        className={`text-xs px-2 py-1 rounded-full shrink-0 ${
+          match.status === "completed"
+            ? "bg-green-950 text-green-400"
+            : match.status === "inProgress"
+              ? "bg-arena-neon/20 text-arena-neon"
+              : "bg-gray-800 text-gray-400"
+        }`}
+      >
+        {statusLabel}
+      </span>
+    </div>
+  );
+
+  const footer = (
+    <>
       {winner && (
         <p className="mt-2 text-sm text-arena-purple font-medium">
           冠軍：{winner.name}
         </p>
       )}
-
       {match.status === "setup" && (
         <p className="text-xs text-arena-neon/80 mt-3">點擊進入設定選手與陀螺</p>
       )}
     </>
   );
 
-  const content = (
+  const main = (
+    <>
+      {body}
+      {footer}
+    </>
+  );
+
+  return (
     <Card
-      className={`mb-3 overflow-hidden p-0 ${href ? "hover:border-arena-neon/40 transition-colors" : ""}`}
+      className={`mb-3 overflow-hidden p-0 relative ${href ? "hover:border-arena-neon/40 transition-colors" : ""}`}
     >
+      {onDelete && (
+        <button
+          type="button"
+          className="absolute top-3 right-3 z-20 text-xs text-red-400 font-medium px-3 py-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-arena-black/80 border border-red-400/30 active:bg-red-950/50"
+          onClick={handleDelete}
+          aria-label={`刪除比賽 ${match.name}`}
+        >
+          刪除
+        </button>
+      )}
       <MatchCelebrationBackground
         photos={withBg ? match.celebrationPhotos : undefined}
         className="p-4"
         overlayClassName="bg-arena-black/70"
       >
-        {inner}
+        {href ? (
+          <Link href={href} className="block">
+            {main}
+          </Link>
+        ) : (
+          main
+        )}
       </MatchCelebrationBackground>
     </Card>
   );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-
-  return content;
 }
