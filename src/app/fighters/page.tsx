@@ -3,14 +3,22 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAppData } from "@/hooks/useAppData";
+import { FighterAvatar } from "@/components/fighters/FighterAvatar";
 import { computeFighterStats } from "@/lib/fighters/stats";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 export default function FightersPage() {
-  const { data, hydrated, registeredFighters, registerFighterByName } =
-    useAppData();
+  const {
+    data,
+    hydrated,
+    registeredFighters,
+    registerFighterByName,
+    adminLoggedIn,
+    deleteFighterByNameKey,
+    getLibraryForFighter,
+  } = useAppData();
   const [newName, setNewName] = useState("");
 
   const statByName = useMemo(() => {
@@ -29,7 +37,7 @@ export default function FightersPage() {
     <div>
       <h2 className="text-xl font-bold mb-1">選手</h2>
       <p className="text-sm text-gray-500 mb-4">
-        點選手可查看戰績、零件庫與陀螺組合（全員可編輯）。
+        查看戰績與頭像；陀螺庫請至底部「陀螺庫」分頁選選手編輯。
       </p>
 
       <CloudSyncBar />
@@ -72,14 +80,16 @@ export default function FightersPage() {
         registeredFighters.map((fighter) => {
           const stats = statByName.get(fighter.nameKey);
           const icon = stats?.icon ?? fighter.icon;
+          const buildCount = getLibraryForFighter(fighter.nameKey).builds.length;
 
           return (
-            <Link key={fighter.nameKey} href={`/fighters/${fighter.nameKey}`}>
-              <Card className="mb-2 hover:border-arena-neon/40 transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl w-10 h-10 flex items-center justify-center shrink-0">
-                    {icon || "🎮"}
-                  </span>
+            <Card key={fighter.nameKey} className="mb-2">
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/fighters/${encodeURIComponent(fighter.nameKey)}`}
+                  className="flex items-center gap-3 min-w-0 flex-1"
+                >
+                  <FighterAvatar icon={icon} name={fighter.displayName} />
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-arena-neon truncate">
                       {fighter.displayName}
@@ -90,12 +100,30 @@ export default function FightersPage() {
                       {(stats?.matchCount ?? 0) > 0
                         ? ` · 參賽 ${stats!.matchCount} 場`
                         : ""}
+                      {buildCount > 0 ? ` · ${buildCount} 組陀螺` : ""}
                     </p>
                   </div>
                   <span className="text-xs text-gray-600 shrink-0">詳情 →</span>
-                </div>
-              </Card>
-            </Link>
+                </Link>
+                {adminLoggedIn && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-400 shrink-0 px-2 py-1"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `確定刪除選手「${fighter.displayName}」？陀螺庫資料一併移除。`
+                        )
+                      ) {
+                        deleteFighterByNameKey(fighter.nameKey);
+                      }
+                    }}
+                  >
+                    刪除
+                  </button>
+                )}
+              </div>
+            </Card>
           );
         })
       )}

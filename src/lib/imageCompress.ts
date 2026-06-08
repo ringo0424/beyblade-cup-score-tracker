@@ -71,3 +71,31 @@ export async function fileToCompressedDataUrl(
 
   return dataUrl;
 }
+
+const AVATAR_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+]);
+
+export async function fileToAvatarDataUrl(file: File): Promise<string> {
+  if (!AVATAR_TYPES.has(file.type)) {
+    throw new Error("僅支援 PNG、JPG、GIF 圖片");
+  }
+
+  if (file.type === "image/gif") {
+    const raw = await readFileAsDataUrl(file);
+    if (estimateBytes(raw) > 600_000) {
+      throw new Error("GIF 檔案太大，請改用較小的圖片");
+    }
+    return raw;
+  }
+
+  return fileToCompressedDataUrl(file, {
+    maxWidth: 256,
+    maxHeight: 256,
+    maxBytes: 220_000,
+    quality: 0.85,
+  });
+}

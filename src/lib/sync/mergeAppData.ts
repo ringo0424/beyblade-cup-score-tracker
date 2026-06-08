@@ -180,14 +180,15 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
     local.deletedAccountIds,
     remote.deletedAccountIds
   );
+  const deletedFighterKeys = mergeDeletedIds(
+    local.deletedFighterKeys,
+    remote.deletedFighterKeys
+  );
+  const deletedFighters = deletedIdSet(deletedFighterKeys);
 
-  const mergedLibs = mergeLibraries(local.libraries, remote.libraries);
-  const sharedLib = mergedLibs.find((l) => l.accountId === SHARED_LIBRARY_ID) ??
-    mergedLibs[0] ?? {
-      accountId: SHARED_LIBRARY_ID,
-      savedParts: [],
-      builds: [],
-    };
+  const mergedLibs = mergeLibraries(local.libraries, remote.libraries).filter(
+    (lib) => !deletedFighters.has(lib.accountId)
+  );
 
   return {
     eventDays:
@@ -200,11 +201,14 @@ export function mergeAppData(local: AppData, remote: AppData): AppData {
       deletedIdSet(deletedMatchIds)
     ),
     accounts: [],
-    libraries: [sharedLib],
-    fighters: mergeFighters(local.fighters ?? [], remote.fighters ?? []),
+    libraries: mergedLibs,
+    fighters: mergeFighters(local.fighters ?? [], remote.fighters ?? []).filter(
+      (f) => !deletedFighters.has(f.nameKey)
+    ),
     settings: { ...remote.settings, ...local.settings },
     deletedMatchIds,
     deletedAccountIds,
+    deletedFighterKeys,
     version: Math.max(local.version ?? 0, remote.version ?? 0, 5),
   };
 }

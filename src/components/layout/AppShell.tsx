@@ -11,7 +11,6 @@ const navItems = [
   { href: "/fighters", label: "選手", icon: "🎖️" },
   { href: "/library", label: "陀螺庫", icon: "📦" },
   { href: "/stats", label: "數據", icon: "📊" },
-  { href: "/match/create", label: "新賽", icon: "⚔️" },
   { href: "/history", label: "紀錄", icon: "📋" },
 ];
 

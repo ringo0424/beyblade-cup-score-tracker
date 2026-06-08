@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppData } from "@/hooks/useAppData";
+import { AdminLoginCard } from "@/components/admin/AdminLoginCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
@@ -17,6 +18,8 @@ export default function SettingsPage() {
       </p>
 
       <CloudSyncBar />
+
+      <AdminLoginCard />
 
       <Card className="mb-4">
         <label className="flex items-center justify-between gap-3 cursor-pointer">

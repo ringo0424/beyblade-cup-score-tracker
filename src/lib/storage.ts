@@ -8,34 +8,32 @@ import { deletedIdSet } from "@/lib/deletions";
 
 const DATA_VERSION = 5;
 
-function mergeLibrariesToShared(
-  libraries: AppData["libraries"]
-): AppData["libraries"] {
-  const shared = libraries.find((l) => l.accountId === SHARED_LIBRARY_ID);
-  if (shared && libraries.length === 1) return libraries;
-
-  const partIds = new Set<string>();
-  const buildIds = new Set<string>();
-  const savedParts = [...(shared?.savedParts ?? [])];
-  const builds = [...(shared?.builds ?? [])];
-
+function dedupeLibraries(libraries: AppData["libraries"]): AppData["libraries"] {
+  const map = new Map<string, AppData["libraries"][0]>();
   for (const lib of libraries) {
-    if (lib.accountId === SHARED_LIBRARY_ID) continue;
-    for (const p of lib.savedParts) {
-      if (!partIds.has(p.id)) {
-        partIds.add(p.id);
-        savedParts.push(p);
-      }
+    const existing = map.get(lib.accountId);
+    if (!existing) {
+      map.set(lib.accountId, lib);
+      continue;
     }
-    for (const b of lib.builds) {
-      if (!buildIds.has(b.id)) {
-        buildIds.add(b.id);
-        builds.push(b);
-      }
-    }
+    map.set(lib.accountId, {
+      accountId: lib.accountId,
+      savedParts:
+        lib.savedParts.length >= existing.savedParts.length
+          ? lib.savedParts
+          : existing.savedParts,
+      builds:
+        lib.builds.length >= existing.builds.length ? lib.builds : existing.builds,
+    });
   }
-
-  return [{ accountId: SHARED_LIBRARY_ID, savedParts, builds }];
+  if (!map.has(SHARED_LIBRARY_ID)) {
+    map.set(SHARED_LIBRARY_ID, {
+      accountId: SHARED_LIBRARY_ID,
+      savedParts: [],
+      builds: [],
+    });
+  }
+  return Array.from(map.values());
 }
 
 function emptyData(): AppData {
@@ -48,22 +46,25 @@ function emptyData(): AppData {
     settings: {},
     deletedMatchIds: [],
     deletedAccountIds: [],
+    deletedFighterKeys: [],
     version: DATA_VERSION,
   };
 }
 
 export function normalizeAppData(raw: Partial<AppData>): AppData {
   const deletedMatches = deletedIdSet(raw.deletedMatchIds);
-  const libraries = mergeLibrariesToShared(raw.libraries ?? []);
+  const libraries = dedupeLibraries(raw.libraries ?? []);
+  const deletedFighters = deletedIdSet(raw.deletedFighterKeys);
   return {
     eventDays: raw.eventDays ?? [],
     matches: (raw.matches ?? []).filter((m) => !deletedMatches.has(m.id)),
     accounts: [],
     libraries,
-    fighters: raw.fighters ?? [],
+    fighters: (raw.fighters ?? []).filter((f) => !deletedFighters.has(f.nameKey)),
     settings: raw.settings ?? {},
     deletedMatchIds: raw.deletedMatchIds ?? [],
     deletedAccountIds: raw.deletedAccountIds ?? [],
+    deletedFighterKeys: raw.deletedFighterKeys ?? [],
     version: DATA_VERSION,
   };
 }

@@ -2,6 +2,13 @@ import type { AppData, FighterProfile } from "@/types";
 import { generateId } from "@/lib/id";
 import { fighterDisplayName, fighterNameKey } from "./keys";
 
+function normalizeAvatar(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  return trimmed.slice(0, 8);
+}
+
 export function setFighterIcon(
   data: AppData,
   displayName: string,
@@ -9,14 +16,13 @@ export function setFighterIcon(
   accountId?: string
 ): AppData {
   const nameKey = fighterNameKey(displayName);
-  const trimmedIcon = icon?.trim().slice(0, 8) || undefined;
+  const normalized = normalizeAvatar(icon);
   const fighters = [...(data.fighters ?? [])];
   const idx = fighters.findIndex((f) => f.nameKey === nameKey);
 
-  if (!trimmedIcon) {
+  if (!normalized) {
     if (idx >= 0) {
-      const next = { ...fighters[idx], icon: undefined };
-      fighters[idx] = next;
+      fighters[idx] = { ...fighters[idx], icon: undefined };
     }
     return { ...data, fighters };
   }
@@ -26,7 +32,7 @@ export function setFighterIcon(
     nameKey,
     displayName: fighterDisplayName(displayName),
     accountId: accountId ?? fighters[idx]?.accountId,
-    icon: trimmedIcon,
+    icon: normalized,
   };
 
   if (idx >= 0) fighters[idx] = profile;

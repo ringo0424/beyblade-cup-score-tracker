@@ -17,10 +17,16 @@ import {
   removePlayerFromMatch,
 } from "@/lib/accounts";
 import {
+  deleteFighter,
   getFighterLibrary,
   listRegisteredFighters,
   registerFighter,
 } from "@/lib/fighters/registry";
+import {
+  isAdminLoggedIn,
+  loginAdmin,
+  logoutAdmin,
+} from "@/lib/adminAuth";
 import {
   loadAppData,
   normalizeAppData,
@@ -95,6 +101,10 @@ interface AppDataContextValue {
   toxicQuotesEnabled: boolean;
   setToxicQuotesEnabled: (enabled: boolean) => void;
   setFighterIcon: (displayName: string, icon: string | undefined) => void;
+  adminLoggedIn: boolean;
+  loginAdminWithPassword: (password: string) => string | null;
+  logoutAdminSession: () => void;
+  deleteFighterByNameKey: (nameKey: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -106,6 +116,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncRefreshing, setSyncRefreshing] = useState(false);
+  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
   const revisionRef = useRef(0);
   const applyingRemoteRef = useRef(false);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -260,6 +271,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setDataState(local);
     syncPhotoMapFromAppData(local);
     setSiteUnlocked(isSiteUnlocked());
+    setAdminLoggedIn(isAdminLoggedIn());
     setHydrated(true);
 
     if (!syncEnabled) return;
@@ -425,6 +437,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const loginAdminWithPassword = useCallback((password: string): string | null => {
+    if (!loginAdmin(password)) return "密碼錯誤";
+    setAdminLoggedIn(true);
+    return null;
+  }, []);
+
+  const logoutAdminSession = useCallback(() => {
+    logoutAdmin();
+    setAdminLoggedIn(false);
+  }, []);
+
+  const deleteFighterByNameKey = useCallback(
+    (nameKey: string) => {
+      mutate((d) => deleteFighter(d, nameKey));
+    },
+    [mutate]
+  );
+
   const value: AppDataContextValue = {
     data: dataOrEmpty,
     hydrated,
@@ -455,6 +485,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     toxicQuotesEnabled,
     setToxicQuotesEnabled,
     setFighterIcon,
+    adminLoggedIn,
+    loginAdminWithPassword,
+    logoutAdminSession,
+    deleteFighterByNameKey,
   };
 
   return (

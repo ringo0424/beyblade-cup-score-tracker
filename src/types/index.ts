@@ -184,7 +184,7 @@ export interface FighterProfile {
   nameKey: string;
   displayName: string;
   accountId?: string;
-  /** Emoji 或短文字，最多 8 字元 */
+  /** Emoji 或頭像 data URL（PNG/JPG/GIF） */
   icon?: string;
 }
 
@@ -212,5 +212,7 @@ export interface AppData {
   deletedMatchIds?: string[];
   /** 已刪除的帳號 id（雲端合併時不再復原） */
   deletedAccountIds?: string[];
+  /** 已刪除的選手 nameKey（雲端合併時不再復原） */
+  deletedFighterKeys?: string[];
   version: number;
 }
