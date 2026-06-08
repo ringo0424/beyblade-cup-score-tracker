@@ -10,7 +10,7 @@ import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationB
 import { Card } from "@/components/ui/Card";
 
 export default function HistoryPage() {
-  const { data, hydrated, isAdmin, removeMatchById } = useAppData();
+  const { data, hydrated, removeMatchById } = useAppData();
   const [filterDate, setFilterDate] = useState("");
 
   const sorted = useMemo(() => {
@@ -35,12 +35,6 @@ export default function HistoryPage() {
   return (
     <div>
       <h2 className="text-xl font-bold mb-1">比賽紀錄</h2>
-      {isAdmin && (
-        <p className="text-xs text-arena-purple mb-4">
-          管理員可刪除比賽紀錄
-        </p>
-      )}
-
       {dates.length > 0 && (
         <div className="flex gap-2 overflow-x-auto mb-4 pb-1">
           <button
@@ -80,7 +74,7 @@ export default function HistoryPage() {
           <HistoryRow
             key={m.id}
             match={m}
-            canDelete={isAdmin}
+            canDelete
             onDelete={removeMatchById}
           />
         ))
@@ -96,7 +90,7 @@ function HistoryRow({
 }: {
   match: Match;
   canDelete?: boolean;
-  onDelete?: (matchId: string) => boolean;
+  onDelete?: (matchId: string) => void;
 }) {
   const winner = match.players.find((p) => p.id === match.winnerPlayerId);
   const typeLabel = match.matchType === "1v1" ? "1v1" : "循環賽";
@@ -111,9 +105,7 @@ function HistoryRow({
   const handleDelete = () => {
     if (!onDelete) return;
     if (!confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)) return;
-    if (!onDelete(match.id)) {
-      alert("請以 RINGO 管理員登入後再刪除比賽。");
-    }
+    onDelete(match.id);
   };
 
   const rowInner = (

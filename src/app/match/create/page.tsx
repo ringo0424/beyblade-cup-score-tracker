@@ -8,17 +8,16 @@ import {
   SCORE_TARGET_OPTIONS,
   TIME_SHORTCUTS,
 } from "@/lib/constants";
-import { createDefaultSetup } from "@/lib/beyblade";
 import { generateId } from "@/lib/id";
 import { generateMatchName } from "@/lib/matchName";
 import { getTodayDateString } from "@/lib/storage";
-import type { Match, MatchType, Player, ScoreTarget } from "@/types";
+import type { Match, MatchType, ScoreTarget } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 export default function CreateMatchPage() {
   const router = useRouter();
-  const { data, saveMatch, currentAccount } = useAppData();
+  const { data, saveMatch } = useAppData();
 
   const [date, setDate] = useState(getTodayDateString());
   const [time, setTime] = useState("4:00 PM");
@@ -31,18 +30,9 @@ export default function CreateMatchPage() {
     [time, location, data.matches]
   );
 
-  const canSubmit =
-    Boolean(currentAccount) && time.trim() && location.trim();
+  const canSubmit = Boolean(time.trim() && location.trim());
 
   const handleSubmit = () => {
-    if (!currentAccount) return;
-
-    const hostPlayer: Player = {
-      id: generateId(),
-      name: currentAccount.name,
-      accountId: currentAccount.id,
-    };
-
     const match: Match = {
       id: generateId(),
       eventDayId: generateId(),
@@ -52,14 +42,13 @@ export default function CreateMatchPage() {
       location,
       scoreTarget,
       matchType,
-      players: [hostPlayer],
-      beybladeSetups: [createDefaultSetup(hostPlayer.id)],
+      players: [],
+      beybladeSetups: [],
       pairings: [],
       rounds: [],
       status: "setup",
       currentPairingIndex: 0,
       winnerPlayerId: null,
-      hostAccountId: currentAccount.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -72,7 +61,7 @@ export default function CreateMatchPage() {
     <div>
       <h2 className="text-xl font-bold mb-4">建立新比賽</h2>
       <p className="text-sm text-gray-500 mb-4">
-        建立後你會自動加入；其他人可在首頁看見並加入，再各自填陀螺資料。
+        建立後在下一頁新增選手名稱，並為每人填寫 3 組陀螺。
       </p>
 
       <Card className="mb-4">
@@ -168,16 +157,16 @@ export default function CreateMatchPage() {
         </div>
         {matchType === "roundRobin" && (
           <p className="text-xs text-gray-500 mt-2">
-            至少 3 人加入後可開始；每人各自填 3 組陀螺。
+            至少 3 人後可開始；每人 3 組陀螺。
           </p>
         )}
         {matchType === "1v1" && (
-          <p className="text-xs text-gray-500 mt-2">需 2 人加入後可開始。</p>
+          <p className="text-xs text-gray-500 mt-2">需 2 人後可開始。</p>
         )}
       </Card>
 
       <Button fullWidth disabled={!canSubmit} onClick={handleSubmit}>
-        建立並填寫我的陀螺
+        建立並設定選手
       </Button>
     </div>
   );

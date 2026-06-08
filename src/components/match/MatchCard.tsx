@@ -1,14 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Match } from "@/types";
 import { formatDisplayDate } from "@/lib/storage";
-import {
-  canJoinMatch,
-  isJoinedMatch,
-  minPlayersForMatch,
-} from "@/lib/accounts";
+import { minPlayersForMatch } from "@/lib/accounts";
 import { hasCelebrationPhotos } from "@/lib/matchPhotos";
 import { MatchCelebrationBackground } from "@/components/match/MatchCelebrationBackground";
 import { Card } from "@/components/ui/Card";
@@ -16,22 +11,12 @@ import { Button } from "@/components/ui/Button";
 
 export function MatchCard({
   match,
-  accountId,
-  onJoin,
-  canDelete,
   onDelete,
 }: {
   match: Match;
-  accountId?: string;
-  onJoin?: (matchId: string) => void;
-  canDelete?: boolean;
-  onDelete?: (matchId: string) => boolean;
+  onDelete?: (matchId: string) => void;
 }) {
-  const router = useRouter();
   const winner = match.players.find((p) => p.id === match.winnerPlayerId);
-  const joined = accountId ? isJoinedMatch(match, accountId) : false;
-  const joinable =
-    accountId && onJoin ? canJoinMatch(match, accountId) : false;
 
   const statusLabel =
     match.status === "completed"
@@ -39,7 +24,7 @@ export function MatchCard({
       : match.status === "inProgress"
         ? "進行中"
         : match.status === "setup"
-          ? "可加入"
+          ? "籌備中"
           : "草稿";
 
   const playPath =
@@ -49,15 +34,12 @@ export function MatchCard({
 
   const href =
     match.status === "setup"
-      ? joined
-        ? `/match/${match.id}/setup`
-        : undefined
-      : joined || match.status === "completed"
+      ? `/match/${match.id}/setup`
+      : match.status === "inProgress" || match.status === "completed"
         ? playPath
         : undefined;
 
   const minP = minPlayersForMatch(match);
-
   const withBg = hasCelebrationPhotos(match.celebrationPhotos);
 
   const inner = (
@@ -75,9 +57,11 @@ export function MatchCard({
           </p>
           {match.status === "setup" && (
             <p className="text-xs text-arena-neon/80 mt-1">
-              籌備中 · {match.matchType === "1v1" ? "1v1" : "循環賽"} · 已{" "}
+              {match.matchType === "1v1" ? "1v1" : "循環賽"} · 已{" "}
               {match.players.length} 人
-              {match.players.length < minP ? `（尚缺 ${minP - match.players.length} 人）` : "（可開始）"}
+              {match.players.length < minP
+                ? `（尚缺 ${minP - match.players.length} 人）`
+                : "（可開始）"}
             </p>
           )}
         </div>
@@ -91,9 +75,9 @@ export function MatchCard({
                   : "bg-gray-800 text-gray-400"
             }`}
           >
-            {joined ? "已加入" : statusLabel}
+            {statusLabel}
           </span>
-          {canDelete && onDelete && (
+          {onDelete && (
             <button
               type="button"
               className="text-xs text-red-400"
@@ -103,10 +87,7 @@ export function MatchCard({
                 if (
                   confirm(`確定刪除比賽「${match.name}」？此動作無法復原。`)
                 ) {
-                  const ok = onDelete(match.id);
-                  if (!ok) {
-                    alert("請以 RINGO 管理員登入後再刪除比賽。");
-                  }
+                  onDelete(match.id);
                 }
               }}
             >
@@ -122,34 +103,8 @@ export function MatchCard({
         </p>
       )}
 
-      {joinable && onJoin && (
-        <Button
-          fullWidth
-          className="mt-3"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onJoin(match.id);
-            router.push(`/match/${match.id}/setup`);
-          }}
-        >
-          加入比賽
-        </Button>
-      )}
-
-      {joined && match.status === "setup" && (
-        <Button
-          variant="secondary"
-          fullWidth
-          className="mt-3"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            router.push(`/match/${match.id}/setup`);
-          }}
-        >
-          填寫陀螺資料
-        </Button>
+      {match.status === "setup" && (
+        <p className="text-xs text-arena-neon/80 mt-3">點擊進入設定選手與陀螺</p>
       )}
     </>
   );
@@ -168,7 +123,7 @@ export function MatchCard({
     </Card>
   );
 
-  if (href && !joinable) {
+  if (href) {
     return <Link href={href}>{content}</Link>;
   }
 

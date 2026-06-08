@@ -6,42 +6,26 @@ import { useAppData } from "@/hooks/useAppData";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-export default function LoginPage() {
+export default function UnlockPage() {
   const router = useRouter();
-  const {
-    hydrated,
-    currentAccount,
-    loginWithPassword,
-    registerWithPassword,
-    syncEnabled,
-    syncStatus,
-  } = useAppData();
+  const { hydrated, siteUnlocked, unlockSiteWithPassword, syncEnabled, syncStatus } =
+    useAppData();
 
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (!hydrated) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
   }
 
-  if (currentAccount) {
+  if (siteUnlocked) {
     router.replace("/");
     return null;
   }
 
   const submit = () => {
     setError(null);
-    if (mode === "register" && password !== confirm) {
-      setError("兩次密碼不一致");
-      return;
-    }
-    const err =
-      mode === "login"
-        ? loginWithPassword(name, password)
-        : registerWithPassword(name, password);
+    const err = unlockSiteWithPassword(password);
     if (err) {
       setError(err);
       return;
@@ -51,11 +35,9 @@ export default function LoginPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1">
-        {mode === "login" ? "登入" : "註冊帳號"}
-      </h2>
+      <h2 className="text-xl font-bold mb-1">進入計分系統</h2>
       <p className="text-sm text-gray-500 mb-4">
-        每位選手需設定帳號與密碼後才能使用。
+        輸入網站密碼即可使用。不需個人帳號，所有人可建立比賽並為選手填寫陀螺。
       </p>
 
       {syncEnabled && (
@@ -64,57 +46,21 @@ export default function LoginPage() {
         </p>
       )}
 
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant={mode === "login" ? "primary" : "secondary"}
-          className="flex-1"
-          onClick={() => setMode("login")}
-        >
-          登入
-        </Button>
-        <Button
-          variant={mode === "register" ? "primary" : "secondary"}
-          className="flex-1"
-          onClick={() => setMode("register")}
-        >
-          註冊
-        </Button>
-      </div>
-
       <Card className="mb-4 space-y-3">
         <div>
-          <label className="label-arena">帳號名稱</label>
-          <input
-            className="input-arena"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="你的名字"
-          />
-        </div>
-        <div>
-          <label className="label-arena">密碼</label>
+          <label className="label-arena">網站密碼</label>
           <input
             type="password"
             className="input-arena"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="至少 4 字"
+            placeholder="輸入密碼"
+            onKeyDown={(e) => e.key === "Enter" && submit()}
           />
         </div>
-        {mode === "register" && (
-          <div>
-            <label className="label-arena">確認密碼</label>
-            <input
-              type="password"
-              className="input-arena"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-          </div>
-        )}
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button fullWidth onClick={submit}>
-          {mode === "login" ? "登入" : "建立帳號"}
+          進入
         </Button>
       </Card>
     </div>

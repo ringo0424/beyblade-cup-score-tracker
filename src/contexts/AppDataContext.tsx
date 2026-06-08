@@ -9,20 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Account, AppData, Beyblade, LibraryBuild, LibraryPart, Match } from "@/types";
+import type { AppData, Beyblade, LibraryBuild, LibraryPart, Match } from "@/types";
+import { SHARED_LIBRARY_ID } from "@/lib/constants";
 import {
-  CURRENT_ACCOUNT_NAME_STORAGE_KEY,
-  CURRENT_ACCOUNT_STORAGE_KEY,
-} from "@/lib/constants";
-import { resolveRemappedAccountId } from "@/lib/accountRemap";
-import {
-  addAccount,
-  authenticateAccount,
-  findAccountById,
-  findAccountByName,
-  isAdminAccount,
-  joinMatch as joinMatchAction,
-  removeAccount,
+  addPlayerToMatch,
+  listFighterNames,
+  removePlayerFromMatch,
 } from "@/lib/accounts";
 import {
   loadAppData,
@@ -37,13 +29,14 @@ import {
   addLibraryBuild,
   addLibraryPart,
   createLibraryBuild,
-  getUserLibrary,
+  getSharedLibrary,
   libraryBuildToBeyblade,
   removeLibraryBuild,
   removeLibraryPart,
 } from "@/lib/library";
 import { setFighterIcon as setFighterIconAction } from "@/lib/fighters/profiles";
 import type { PhstudyPartCategory } from "@/lib/phstudy/types";
+import { isSiteUnlocked, lockSite, unlockSite } from "@/lib/siteAuth";
 import { isSyncConfigured } from "@/lib/sync/supabase";
 import {
   attachLocalPhotos,
@@ -52,7 +45,7 @@ import {
 } from "@/lib/matchPhotosStorage";
 import {
   appDataChanged,
-  mergeAppDataWithMeta,
+  mergeAppData,
   shouldPushMergedToCloud,
 } from "@/lib/sync/mergeAppData";
 import {
@@ -66,24 +59,23 @@ export type SyncStatus = "local" | "connecting" | "synced" | "error";
 interface AppDataContextValue {
   data: AppData;
   hydrated: boolean;
+  siteUnlocked: boolean;
   syncStatus: SyncStatus;
   syncError: string | null;
   syncRefreshing: boolean;
   refreshCloudSync: () => Promise<string>;
   syncEnabled: boolean;
-  currentAccount: Account | null;
-  isAdmin: boolean;
-  userLibrary: ReturnType<typeof getUserLibrary>;
+  sharedLibrary: ReturnType<typeof getSharedLibrary>;
+  fighterNames: string[];
   saveMatch: (match: Match) => void;
-  removeMatchById: (matchId: string) => boolean;
+  removeMatchById: (matchId: string) => void;
+  addPlayerToMatchById: (matchId: string, name: string) => boolean;
+  removePlayerFromMatchById: (matchId: string, playerId: string) => boolean;
   loadSample: () => void;
   resetAll: () => void;
   setData: (next: AppData) => void;
-  loginWithPassword: (name: string, password: string) => string | null;
-  registerWithPassword: (name: string, password: string) => string | null;
-  logout: () => void;
-  deleteAccountById: (accountId: string) => boolean;
-  joinMatchById: (matchId: string) => boolean;
+  unlockSiteWithPassword: (password: string) => string | null;
+  lockSiteSession: () => void;
   addPartToLibrary: (part: Omit<LibraryPart, "id">) => void;
   removePartFromLibrary: (partId: string) => void;
   saveBuildToLibrary: (
@@ -93,20 +85,15 @@ interface AppDataContextValue {
   removeBuildFromLibrary: (buildId: string) => void;
   toxicQuotesEnabled: boolean;
   setToxicQuotesEnabled: (enabled: boolean) => void;
-  setFighterIcon: (displayName: string, icon: string | undefined) => boolean;
+  setFighterIcon: (displayName: string, icon: string | undefined) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-function readStoredAccountId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(CURRENT_ACCOUNT_STORAGE_KEY);
-}
-
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [data, setDataState] = useState<AppData | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [currentAccountId, setCurrentAccountId] = useState<string | null>(null);
+  const [siteUnlocked, setSiteUnlocked] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncRefreshing, setSyncRefreshing] = useState(false);
@@ -118,60 +105,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const syncEnabled = isSyncConfigured();
   const dataOrEmpty = data ?? normalizeAppData({});
   dataRef.current = data;
-  const currentAccount = (() => {
-    if (currentAccountId) {
-      const byId = findAccountById(dataOrEmpty, currentAccountId);
-      if (byId) return byId;
-    }
-    if (typeof window === "undefined") return null;
-    const storedName = localStorage.getItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY);
-    if (storedName) {
-      return findAccountByName(dataOrEmpty, storedName) ?? null;
-    }
-    return null;
-  })();
-  const isAdmin = isAdminAccount(currentAccount);
   const toxicQuotesEnabled = Boolean(dataOrEmpty.settings?.toxicQuotesEnabled);
-  const userLibrary = currentAccount
-    ? getUserLibrary(dataOrEmpty, currentAccount.id)
-    : { accountId: "", savedParts: [], builds: [] };
+  const sharedLibrary = getSharedLibrary(dataOrEmpty);
+  const fighterNames = listFighterNames(dataOrEmpty);
 
   const persistLocal = useCallback((next: AppData) => {
     const normalized = attachLocalPhotos(normalizeAppData(next));
     syncPhotoMapFromAppData(normalized);
     setDataState(normalized);
     saveAppData(normalized);
-  }, []);
-
-  const applyMergeResult = useCallback((local: AppData, remote: AppData) => {
-    const { data: merged, accountIdRemap } = mergeAppDataWithMeta(
-      local,
-      remote
-    );
-    const storedId = readStoredAccountId();
-    if (storedId && accountIdRemap.size > 0) {
-      const remapped = resolveRemappedAccountId(accountIdRemap, storedId);
-      if (remapped !== storedId) {
-        localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, remapped);
-        setCurrentAccountId(remapped);
-      }
-    }
-    const resolvedId = storedId
-      ? resolveRemappedAccountId(accountIdRemap, storedId)
-      : null;
-    const account = resolvedId
-      ? (findAccountById(merged, resolvedId) ??
-        (typeof window !== "undefined"
-          ? findAccountByName(
-              merged,
-              localStorage.getItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY) ?? ""
-            )
-          : undefined))
-      : undefined;
-    if (account) {
-      localStorage.setItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY, account.name);
-    }
-    return merged;
   }, []);
 
   const scheduleCloudPush = useCallback(
@@ -189,7 +131,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           applyingRemoteRef.current = true;
           revisionRef.current = result.revision;
           const localNow = attachLocalPhotos(normalizeAppData(next));
-          const merged = applyMergeResult(localNow, result.payload);
+          const merged = mergeAppData(localNow, result.payload);
           persistLocal(merged);
           applyingRemoteRef.current = false;
           setSyncError("已與雲端合併最新資料（保留本機較新紀錄）");
@@ -202,7 +144,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }
       }, 350);
     },
-    [applyMergeResult, persistLocal, syncEnabled]
+    [persistLocal, syncEnabled]
   );
 
   type AppDataUpdater = AppData | ((prev: AppData) => AppData);
@@ -238,7 +180,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if ("conflict" in result && result.conflict) {
           revisionRef.current = result.revision;
           const local = attachLocalPhotos(dataRef.current ?? loadAppData());
-          current = applyMergeResult(local, result.payload);
+          current = mergeAppData(local, result.payload);
           applyingRemoteRef.current = true;
           persistLocal(current);
           applyingRemoteRef.current = false;
@@ -252,7 +194,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       return { ok: false, error: "同步衝突次數過多，請稍後再試" };
     },
-    [applyMergeResult, persistLocal]
+    [persistLocal]
   );
 
   const refreshCloudSync = useCallback(async (): Promise<string> => {
@@ -279,7 +221,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       const local = attachLocalPhotos(dataRef.current ?? loadAppData());
       const remote = attachLocalPhotos(fetched.payload);
-      const merged = applyMergeResult(local, remote);
+      const merged = mergeAppData(local, remote);
 
       applyingRemoteRef.current = true;
       revisionRef.current = fetched.revision;
@@ -287,27 +229,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       applyingRemoteRef.current = false;
 
       const pushResult = await forcePushToCloud(merged);
-      const accounts = merged.accounts.filter((a) => a.passwordHash).length;
+      const players = merged.matches.reduce((n, m) => n + m.players.length, 0);
 
       if (pushResult.ok) {
         setSyncStatus("synced");
         setSyncError(null);
-        return `同步完成：${accounts} 個帳號、${merged.matches.length} 場比賽（已合併並上傳雲端）`;
+        return `同步完成：${merged.matches.length} 場比賽、${players} 位選手（已合併並上傳雲端）`;
       }
 
       setSyncStatus("error");
       setSyncError(pushResult.error);
-      return `已合併本機資料（${accounts} 帳號），但上傳失敗：${pushResult.error}`;
+      return `已合併本機資料，但上傳失敗：${pushResult.error}`;
     } finally {
       setSyncRefreshing(false);
     }
-  }, [applyMergeResult, forcePushToCloud, persistLocal, syncEnabled]);
+  }, [forcePushToCloud, persistLocal, syncEnabled]);
 
   useEffect(() => {
     const local = attachLocalPhotos(loadAppData());
     setDataState(local);
     syncPhotoMapFromAppData(local);
-    setCurrentAccountId(readStoredAccountId());
+    setSiteUnlocked(isSiteUnlocked());
     setHydrated(true);
 
     if (!syncEnabled) return;
@@ -322,7 +264,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       applyingRemoteRef.current = true;
       revisionRef.current = result.revision;
       const remote = attachLocalPhotos(result.payload);
-      const merged = applyMergeResult(local, remote);
+      const merged = mergeAppData(local, remote);
       persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
@@ -330,7 +272,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         scheduleCloudPush(merged);
       }
     });
-  }, [applyMergeResult, persistLocal, scheduleCloudPush, syncEnabled]);
+  }, [persistLocal, scheduleCloudPush, syncEnabled]);
 
   useEffect(() => {
     if (!syncEnabled) return;
@@ -338,11 +280,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (revision <= revisionRef.current) return;
       applyingRemoteRef.current = true;
       revisionRef.current = revision;
-      const local = attachLocalPhotos(
-        dataRef.current ?? loadAppData()
-      );
+      const local = attachLocalPhotos(dataRef.current ?? loadAppData());
       const remote = attachLocalPhotos(normalizeAppData(payload));
-      const merged = applyMergeResult(local, remote);
+      const merged = mergeAppData(local, remote);
       persistLocal(merged);
       applyingRemoteRef.current = false;
       setSyncStatus("synced");
@@ -350,14 +290,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         scheduleCloudPush(merged);
       }
     });
-  }, [applyMergeResult, persistLocal, scheduleCloudPush, syncEnabled]);
+  }, [persistLocal, scheduleCloudPush, syncEnabled]);
 
-  const loginAs = useCallback((accountId: string, accountName?: string) => {
-    localStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, accountId);
-    if (accountName) {
-      localStorage.setItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY, accountName);
-    }
-    setCurrentAccountId(accountId);
+  const unlockSiteWithPassword = useCallback((password: string): string | null => {
+    if (!unlockSite(password)) return "密碼錯誤";
+    setSiteUnlocked(true);
+    return null;
+  }, []);
+
+  const lockSiteSession = useCallback(() => {
+    lockSite();
+    setSiteUnlocked(false);
   }, []);
 
   const saveMatch = useCallback(
@@ -368,12 +311,38 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const removeMatchById = useCallback(
-    (matchId: string): boolean => {
-      if (!isAdminAccount(currentAccount)) return false;
+    (matchId: string) => {
       mutate((d) => removeMatch(d, matchId));
-      return true;
     },
-    [currentAccount, mutate]
+    [mutate]
+  );
+
+  const addPlayerToMatchById = useCallback(
+    (matchId: string, name: string): boolean => {
+      let ok = false;
+      mutate((d) => {
+        const next = addPlayerToMatch(d, matchId, name);
+        if (next === d) return d;
+        ok = true;
+        return next;
+      });
+      return ok;
+    },
+    [mutate]
+  );
+
+  const removePlayerFromMatchById = useCallback(
+    (matchId: string, playerId: string): boolean => {
+      let ok = false;
+      mutate((d) => {
+        const next = removePlayerFromMatch(d, matchId, playerId);
+        if (next === d) return d;
+        ok = true;
+        return next;
+      });
+      return ok;
+    },
+    [mutate]
   );
 
   const loadSample = useCallback(() => {
@@ -384,93 +353,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     mutate(clearAllData());
   }, [mutate]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
-    localStorage.removeItem(CURRENT_ACCOUNT_NAME_STORAGE_KEY);
-    setCurrentAccountId(null);
-  }, []);
-
-  const loginWithPassword = useCallback(
-    (name: string, password: string): string | null => {
-      if (!hydrated) return "載入中";
-      const snapshot = dataRef.current ?? loadAppData();
-      const account = authenticateAccount(snapshot, name, password);
-      if (!account) return "帳號或密碼錯誤";
-      loginAs(account.id, account.name);
-      return null;
-    },
-    [hydrated, loginAs]
-  );
-
-  const registerWithPassword = useCallback(
-    (name: string, password: string): string | null => {
-      if (!hydrated) return "載入中";
-      if (password.length < 4) return "密碼至少 4 字";
-
-      const snapshot = dataRef.current ?? loadAppData();
-      const existingLogin = authenticateAccount(snapshot, name, password);
-      if (existingLogin) {
-        loginAs(existingLogin.id, existingLogin.name);
-        return null;
-      }
-      const dup = snapshot.accounts.find(
-        (a) => a.name.toLowerCase() === name.trim().toLowerCase()
-      );
-      if (dup) return "此帳號已存在，請直接登入";
-
-      let createdId = "";
-      mutate((d) => {
-        const next = addAccount(d, name, password);
-        createdId = next.accounts[next.accounts.length - 1].id;
-        return next;
-      });
-      loginAs(createdId, name.trim());
-      return null;
-    },
-    [hydrated, loginAs, mutate]
-  );
-
-  const deleteAccountById = useCallback(
-    (accountId: string): boolean => {
-      if (!isAdminAccount(currentAccount)) return false;
-      const target = findAccountById(dataRef.current ?? dataOrEmpty, accountId);
-      if (!target || isAdminAccount(target)) return false;
-      if (accountId === currentAccount?.id) return false;
-      mutate((d) => removeAccount(d, accountId));
-      return true;
-    },
-    [currentAccount, dataOrEmpty, mutate]
-  );
-
-  const joinMatchById = useCallback(
-    (matchId: string): boolean => {
-      if (!currentAccount) return false;
-      let ok = false;
-      mutate((d) => {
-        const next = joinMatchAction(d, matchId, currentAccount);
-        if (next === d) return d;
-        ok = true;
-        return next;
-      });
-      return ok;
-    },
-    [currentAccount, mutate]
-  );
-
   const addPartToLibrary = useCallback(
     (part: Omit<LibraryPart, "id">) => {
-      if (!currentAccount) return;
-      mutate((d) => addLibraryPart(d, currentAccount.id, part));
+      mutate((d) => addLibraryPart(d, SHARED_LIBRARY_ID, part));
     },
-    [currentAccount, mutate]
+    [mutate]
   );
 
   const removePartFromLibrary = useCallback(
     (partId: string) => {
-      if (!currentAccount) return;
-      mutate((d) => removeLibraryPart(d, currentAccount.id, partId));
+      mutate((d) => removeLibraryPart(d, SHARED_LIBRARY_ID, partId));
     },
-    [currentAccount, mutate]
+    [mutate]
   );
 
   const saveBuildToLibrary = useCallback(
@@ -478,19 +372,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       beyblade: Beyblade,
       partTypes: Partial<Record<PhstudyPartCategory, string>>
     ) => {
-      if (!currentAccount) return;
       const build = createLibraryBuild(beyblade, partTypes);
-      mutate((d) => addLibraryBuild(d, currentAccount.id, build));
+      mutate((d) => addLibraryBuild(d, SHARED_LIBRARY_ID, build));
     },
-    [currentAccount, mutate]
+    [mutate]
   );
 
   const removeBuildFromLibrary = useCallback(
     (buildId: string) => {
-      if (!currentAccount) return;
-      mutate((d) => removeLibraryBuild(d, currentAccount.id, buildId));
+      mutate((d) => removeLibraryBuild(d, SHARED_LIBRARY_ID, buildId));
     },
-    [currentAccount, mutate]
+    [mutate]
   );
 
   const setToxicQuotesEnabled = useCallback(
@@ -504,35 +396,32 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const setFighterIcon = useCallback(
-    (displayName: string, icon: string | undefined): boolean => {
-      if (!isAdminAccount(currentAccount)) return false;
+    (displayName: string, icon: string | undefined) => {
       mutate((d) => setFighterIconAction(d, displayName, icon));
-      return true;
     },
-    [currentAccount, mutate]
+    [mutate]
   );
 
   const value: AppDataContextValue = {
     data: dataOrEmpty,
     hydrated,
+    siteUnlocked,
     syncStatus,
     syncError,
     syncRefreshing,
     refreshCloudSync,
     syncEnabled,
-    currentAccount,
-    isAdmin,
-    userLibrary,
+    sharedLibrary,
+    fighterNames,
     saveMatch,
     removeMatchById,
+    addPlayerToMatchById,
+    removePlayerFromMatchById,
     loadSample,
     resetAll,
     setData: mutate,
-    loginWithPassword,
-    registerWithPassword,
-    logout,
-    deleteAccountById,
-    joinMatchById,
+    unlockSiteWithPassword,
+    lockSiteSession,
     addPartToLibrary,
     removePartFromLibrary,
     saveBuildToLibrary,

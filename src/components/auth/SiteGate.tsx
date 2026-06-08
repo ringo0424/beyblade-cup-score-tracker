@@ -4,19 +4,19 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppData } from "@/contexts/AppDataContext";
 
-export function AccountGate({ children }: { children: React.ReactNode }) {
+export function SiteGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { hydrated, currentAccount } = useAppData();
+  const { hydrated, siteUnlocked } = useAppData();
 
-  const isLoginPage = pathname === "/login";
+  const isUnlockPage = pathname === "/login";
 
   useEffect(() => {
-    if (!hydrated || isLoginPage) return;
-    if (!currentAccount) {
+    if (!hydrated || isUnlockPage) return;
+    if (!siteUnlocked) {
       router.replace("/login");
     }
-  }, [currentAccount, hydrated, isLoginPage, router]);
+  }, [hydrated, isUnlockPage, router, siteUnlocked]);
 
   if (!hydrated) {
     return (
@@ -26,7 +26,7 @@ export function AccountGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!currentAccount && !isLoginPage) {
+  if (!siteUnlocked && !isUnlockPage) {
     return null;
   }
 

@@ -8,15 +8,22 @@ import type {
 import { generateId } from "@/lib/id";
 import { computeBeybladeStats } from "@/lib/beybladeStats";
 import type { PhstudyPartCategory } from "@/lib/phstudy/types";
+import { SHARED_LIBRARY_ID } from "@/lib/constants";
 
-export function getUserLibrary(data: AppData, accountId: string): UserLibrary {
+export function getSharedLibrary(data: AppData): UserLibrary {
   return (
-    data.libraries.find((l) => l.accountId === accountId) ?? {
-      accountId,
+    data.libraries.find((l) => l.accountId === SHARED_LIBRARY_ID) ?? {
+      accountId: SHARED_LIBRARY_ID,
       savedParts: [],
       builds: [],
     }
   );
+}
+
+/** @deprecated 改用 getSharedLibrary */
+export function getUserLibrary(data: AppData, accountId: string): UserLibrary {
+  if (accountId === SHARED_LIBRARY_ID) return getSharedLibrary(data);
+  return getSharedLibrary(data);
 }
 
 export function upsertUserLibrary(
@@ -29,10 +36,10 @@ export function upsertUserLibrary(
 
 export function addLibraryPart(
   data: AppData,
-  accountId: string,
+  _accountId: string,
   part: Omit<LibraryPart, "id">
 ): AppData {
-  const lib = getUserLibrary(data, accountId);
+  const lib = getSharedLibrary(data);
   if (lib.savedParts.some((p) => p.phstudyId === part.phstudyId)) {
     return data;
   }
@@ -42,10 +49,10 @@ export function addLibraryPart(
 
 export function removeLibraryPart(
   data: AppData,
-  accountId: string,
+  _accountId: string,
   partId: string
 ): AppData {
-  const lib = getUserLibrary(data, accountId);
+  const lib = getSharedLibrary(data);
   return upsertUserLibrary(data, {
     ...lib,
     savedParts: lib.savedParts.filter((p) => p.id !== partId),
@@ -78,10 +85,10 @@ export function createLibraryBuild(
 
 export function addLibraryBuild(
   data: AppData,
-  accountId: string,
+  _accountId: string,
   build: LibraryBuild
 ): AppData {
-  const lib = getUserLibrary(data, accountId);
+  const lib = getSharedLibrary(data);
   return upsertUserLibrary(data, {
     ...lib,
     builds: [...lib.builds, build],
@@ -90,10 +97,10 @@ export function addLibraryBuild(
 
 export function removeLibraryBuild(
   data: AppData,
-  accountId: string,
+  _accountId: string,
   buildId: string
 ): AppData {
-  const lib = getUserLibrary(data, accountId);
+  const lib = getSharedLibrary(data);
   return upsertUserLibrary(data, {
     ...lib,
     builds: lib.builds.filter((b) => b.id !== buildId),

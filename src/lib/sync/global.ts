@@ -11,7 +11,6 @@ export interface GlobalStateRow {
 }
 
 import { normalizeAppData } from "@/lib/storage";
-import { ensureRingoAccount } from "@/lib/auth/password";
 
 const EMPTY_PAYLOAD: AppData = normalizeAppData({
   eventDays: [],
@@ -22,7 +21,7 @@ const EMPTY_PAYLOAD: AppData = normalizeAppData({
   settings: {},
   deletedMatchIds: [],
   deletedAccountIds: [],
-  version: 4,
+  version: 5,
 });
 
 export async function fetchGlobalState(): Promise<

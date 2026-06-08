@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppDataProvider } from "@/contexts/AppDataContext";
-import { AccountGate } from "@/components/auth/AccountGate";
+import { SiteGate } from "@/components/auth/SiteGate";
 import { AppHeader } from "@/components/layout/AppHeader";
 
 const navItems = [
@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppDataProvider>
-      <AccountGate>
+      <SiteGate>
       <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       <AppHeader />
 
@@ -59,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       )}
       </div>
-      </AccountGate>
+      </SiteGate>
     </AppDataProvider>
   );
 }

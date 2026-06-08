@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
-import { openJoinableMatches, setupMatchesForAccount } from "@/lib/accounts";
+import { setupMatches } from "@/lib/accounts";
 import { getTodayMatches, getTodayDateString, formatDisplayDate } from "@/lib/storage";
 import { MatchCard } from "@/components/match/MatchCard";
 import { Button } from "@/components/ui/Button";
@@ -10,30 +10,16 @@ import { Card } from "@/components/ui/Card";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 export default function HomePage() {
-  const {
-    data,
-    hydrated,
-    currentAccount,
-    joinMatchById,
-    isAdmin,
-    removeMatchById,
-    loadSample,
-    resetAll,
-  } = useAppData();
+  const { data, hydrated, removeMatchById, loadSample, resetAll } = useAppData();
   const today = getTodayDateString();
-  const preparing = currentAccount
-    ? setupMatchesForAccount(data, currentAccount.id)
-    : [];
+  const preparing = setupMatches(data);
   const preparingIds = new Set(preparing.map((m) => m.id));
   const todayMatches = getTodayMatches(data).filter(
     (m) => !preparingIds.has(m.id)
   );
   const inProgress = data.matches.filter((m) => m.status === "inProgress");
-  const joinable = currentAccount
-    ? openJoinableMatches(data, currentAccount.id)
-    : [];
 
-  if (!hydrated || !currentAccount) {
+  if (!hydrated) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-gray-500">
         載入中…
@@ -43,44 +29,18 @@ export default function HomePage() {
 
   return (
     <div>
-      <div className="mb-4 text-xs">
-        <Link href="/account" className="text-arena-neon hover:underline">
-          {currentAccount.name}
-        </Link>
-      </div>
       <CloudSyncBar />
 
       {preparing.length > 0 && (
         <section className="mb-6">
           <h2 className="text-lg font-bold text-arena-neon mb-1">籌備中</h2>
           <p className="text-xs text-gray-600 mb-3">
-            選手加入後會自動更新；可點進去查看名單與填寫陀螺。
+            點進去新增選手並為每人填寫陀螺。
           </p>
           {preparing.map((m) => (
             <MatchCard
               key={m.id}
               match={m}
-              accountId={currentAccount.id}
-              onJoin={joinMatchById}
-              canDelete={isAdmin}
-              onDelete={removeMatchById}
-            />
-          ))}
-        </section>
-      )}
-
-      {joinable.length > 0 && (
-        <section className="mb-6">
-          <h2 className="text-lg font-bold text-arena-purple mb-3">
-            可加入的比賽
-          </h2>
-          {joinable.map((m) => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              accountId={currentAccount.id}
-              onJoin={joinMatchById}
-              canDelete={isAdmin}
               onDelete={removeMatchById}
             />
           ))}
@@ -103,14 +63,7 @@ export default function HomePage() {
           </Card>
         ) : (
           todayMatches.map((m) => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              accountId={currentAccount.id}
-              onJoin={joinMatchById}
-              canDelete={isAdmin}
-              onDelete={removeMatchById}
-            />
+            <MatchCard key={m.id} match={m} onDelete={removeMatchById} />
           ))
         )}
       </section>
@@ -119,13 +72,7 @@ export default function HomePage() {
         <section className="mb-6">
           <h2 className="text-lg font-bold text-arena-neon mb-3">進行中</h2>
           {inProgress.map((m) => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              accountId={currentAccount.id}
-              canDelete={isAdmin}
-              onDelete={removeMatchById}
-            />
+            <MatchCard key={m.id} match={m} onDelete={removeMatchById} />
           ))}
         </section>
       )}

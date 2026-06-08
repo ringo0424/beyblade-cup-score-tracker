@@ -80,16 +80,16 @@ function BuildComposer({
 }
 
 export default function LibraryPage() {
-  const { userLibrary, saveBuildToLibrary, removeBuildFromLibrary } =
+  const { sharedLibrary, saveBuildToLibrary, removeBuildFromLibrary } =
     useAppData();
   const [tab, setTab] = useState<"builds" | "parts">("builds");
 
   return (
     <PartsCatalogProvider>
       <div>
-        <h2 className="text-xl font-bold mb-1">我的陀螺庫</h2>
+        <h2 className="text-xl font-bold mb-1">陀螺庫</h2>
         <p className="text-sm text-gray-500 mb-4">
-          組合陀螺並評分；比賽時可一鍵選用，也可現場手動填寫。
+          全站共用陀螺組合；比賽設定時可一鍵選用。
         </p>
         <PartsCatalogBanner />
 
@@ -112,7 +112,7 @@ export default function LibraryPage() {
 
         {tab === "builds" && (
           <>
-            {userLibrary.builds.map((b) => (
+            {sharedLibrary.builds.map((b) => (
               <Card
                 key={b.id}
                 className="mb-2 flex justify-between items-start gap-2"

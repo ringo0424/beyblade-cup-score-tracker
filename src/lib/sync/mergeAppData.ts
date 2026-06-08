@@ -1,8 +1,5 @@
-import { rebuildMatchPlayers } from "@/lib/accounts";
-import {
-  applyAccountIdRemap,
-  mergeAccountsWithRemap,
-} from "@/lib/accountRemap";
+import { normalizeAccountName, rebuildMatchPlayers } from "@/lib/accounts";
+import { SHARED_LIBRARY_ID } from "@/lib/constants";
 import { deletedIdSet, mergeDeletedIds } from "@/lib/deletions";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type {
@@ -15,13 +12,22 @@ import type {
 } from "@/types";
 
 function playerKey(p: Player): string {
-  return p.accountId ?? p.id;
+  return normalizeAccountName(p.name).toLowerCase() || p.id;
 }
 
 function mergePlayers(a: Player[], b: Player[]): Player[] {
   const map = new Map<string, Player>();
   for (const p of a) map.set(playerKey(p), p);
-  for (const p of b) map.set(playerKey(p), p);
+  for (const p of b) {
+    const key = playerKey(p);
+    const existing = map.get(key);
+    map.set(
+      key,
+      existing
+        ? { ...existing, ...p, id: existing.id, name: existing.name || p.name }
+        : p
+    );
+  }
   return Array.from(map.values());
 }
 
@@ -164,16 +170,8 @@ function mergeFighters(
   return Array.from(map.values());
 }
 
-export interface MergeAppDataResult {
-  data: AppData;
-  accountIdRemap: Map<string, string>;
-}
-
 /** 合併本機與雲端，避免較新的本機資料被舊雲端覆蓋。 */
-export function mergeAppDataWithMeta(
-  local: AppData,
-  remote: AppData
-): MergeAppDataResult {
+export function mergeAppData(local: AppData, remote: AppData): AppData {
   const deletedMatchIds = mergeDeletedIds(
     local.deletedMatchIds,
     remote.deletedMatchIds
@@ -182,15 +180,16 @@ export function mergeAppDataWithMeta(
     local.deletedAccountIds,
     remote.deletedAccountIds
   );
-  const deletedAccounts = deletedIdSet(deletedAccountIds);
 
-  const { accounts, idRemap } = mergeAccountsWithRemap(
-    local.accounts,
-    remote.accounts,
-    deletedAccounts
-  );
+  const mergedLibs = mergeLibraries(local.libraries, remote.libraries);
+  const sharedLib = mergedLibs.find((l) => l.accountId === SHARED_LIBRARY_ID) ??
+    mergedLibs[0] ?? {
+      accountId: SHARED_LIBRARY_ID,
+      savedParts: [],
+      builds: [],
+    };
 
-  const base: AppData = {
+  return {
     eventDays:
       local.eventDays.length >= remote.eventDays.length
         ? local.eventDays
@@ -200,25 +199,14 @@ export function mergeAppDataWithMeta(
       remote.matches,
       deletedIdSet(deletedMatchIds)
     ),
-    accounts,
-    libraries: mergeLibraries(local.libraries, remote.libraries).filter(
-      (l) => !deletedAccounts.has(l.accountId)
-    ),
+    accounts: [],
+    libraries: [sharedLib],
     fighters: mergeFighters(local.fighters ?? [], remote.fighters ?? []),
     settings: { ...remote.settings, ...local.settings },
     deletedMatchIds,
     deletedAccountIds,
-    version: Math.max(local.version ?? 0, remote.version ?? 0, 4),
+    version: Math.max(local.version ?? 0, remote.version ?? 0, 5),
   };
-
-  return {
-    data: applyAccountIdRemap(base, idRemap),
-    accountIdRemap: idRemap,
-  };
-}
-
-export function mergeAppData(local: AppData, remote: AppData): AppData {
-  return mergeAppDataWithMeta(local, remote).data;
 }
 
 export function appDataChanged(a: AppData, b: AppData): boolean {
@@ -234,7 +222,6 @@ export function shouldPushMergedToCloud(
   merged: AppData,
   remote: AppData
 ): boolean {
-  if (merged.accounts.length > remote.accounts.length) return true;
   if (totalMatchPlayers(merged) > totalMatchPlayers(remote)) return true;
   if (merged.matches.length > remote.matches.length) return true;
   return appDataChanged(

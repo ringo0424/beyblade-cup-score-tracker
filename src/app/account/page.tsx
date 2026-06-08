@@ -1,139 +1,68 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
-import { formatDisplayDate } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
-export default function AccountPage() {
+export default function SettingsPage() {
   const router = useRouter();
   const {
-    currentAccount,
-    isAdmin,
+    lockSiteSession,
+    toxicQuotesEnabled,
+    setToxicQuotesEnabled,
+    resetAll,
     data,
-    logout,
-    deleteAccountById,
-    removeMatchById,
   } = useAppData();
-
-  if (!currentAccount) return null;
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1">帳號</h2>
+      <h2 className="text-xl font-bold mb-1">設定</h2>
       <p className="text-sm text-gray-500 mb-4">
-        目前登入：<span className="text-arena-neon">{currentAccount.name}</span>
-        {isAdmin && (
-          <span className="ml-2 text-xs text-arena-purple">管理員</span>
-        )}
+        網站以單一密碼保護；解鎖後所有人可建立比賽與填寫陀螺。
       </p>
 
       <CloudSyncBar />
 
+      <Card className="mb-4">
+        <label className="flex items-center justify-between gap-3 cursor-pointer">
+          <span className="text-sm text-gray-300">賽後隨機評語</span>
+          <input
+            type="checkbox"
+            checked={toxicQuotesEnabled}
+            onChange={(e) => setToxicQuotesEnabled(e.target.checked)}
+            className="w-5 h-5 accent-arena-neon"
+          />
+        </label>
+      </Card>
+
       <Button
         variant="secondary"
         fullWidth
-        className="mb-6"
+        className="mb-3"
         onClick={() => {
-          logout();
+          lockSiteSession();
           router.push("/login");
         }}
       >
-        登出
+        鎖定網站
       </Button>
 
-      {isAdmin && (
-        <>
-          <section className="mb-6">
-            <h3 className="text-sm font-bold text-arena-purple mb-2">
-              管理員：刪除比賽紀錄
-            </h3>
-            {data.matches.length === 0 ? (
-              <p className="text-gray-600 text-sm">尚無比賽</p>
-            ) : (
-              data.matches.map((m) => (
-                <Card
-                  key={m.id}
-                  className="mb-2 flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{m.name}</p>
-                    <p className="text-xs text-gray-600">
-                      {formatDisplayDate(m.date)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="text-sm text-red-400 shrink-0"
-                    onClick={() => {
-                      if (
-                        !confirm(
-                          `確定刪除比賽「${m.name}」？此動作無法復原，並會同步到雲端。`
-                        )
-                      ) {
-                        return;
-                      }
-                      if (!removeMatchById(m.id)) {
-                        alert("刪除失敗，請確認已以 RINGO 管理員登入。");
-                      }
-                    }}
-                  >
-                    刪除
-                  </button>
-                </Card>
-              ))
-            )}
-          </section>
-
-          <section>
-            <h3 className="text-sm font-bold text-arena-purple mb-2">
-              管理員：刪除帳號
-            </h3>
-            {data.accounts
-              .filter(
-                (a) =>
-                  a.id !== currentAccount.id &&
-                  !a.isAdmin &&
-                  a.name.trim().toUpperCase() !== "RINGO"
-              )
-              .map((account) => (
-                <Card
-                  key={account.id}
-                  className="mb-2 flex items-center justify-between gap-2"
-                >
-                  <span>{account.name}</span>
-                  <button
-                    type="button"
-                    className="text-sm text-red-400 px-3 py-1"
-                    onClick={() => {
-                      if (
-                        !confirm(
-                          `確定刪除玩家「${account.name}」？帳號與零件庫將一併移除並同步到雲端。`
-                        )
-                      ) {
-                        return;
-                      }
-                      if (!deleteAccountById(account.id)) {
-                        alert("無法刪除此帳號。");
-                      }
-                    }}
-                  >
-                    刪除
-                  </button>
-                </Card>
-              ))}
-          </section>
-        </>
-      )}
-
-      <Link href="/" className="block mt-6">
-        <Button variant="ghost" fullWidth>
-          返回首頁
+      {data.matches.length > 0 && (
+        <Button
+          variant="ghost"
+          fullWidth
+          className="text-red-400"
+          onClick={() => {
+            if (confirm("確定清除全部比賽與資料？此動作無法復原。")) {
+              resetAll();
+            }
+          }}
+        >
+          清除全部資料
         </Button>
-      </Link>
+      )}
     </div>
   );
 }

@@ -3,17 +3,47 @@ import { STORAGE_KEY } from "./constants";
 import { generateId } from "./id";
 import { sampleAppData } from "./sampleData";
 
-import { ensureRingoAccount } from "@/lib/auth/password";
+import { SHARED_LIBRARY_ID } from "@/lib/constants";
 import { deletedIdSet } from "@/lib/deletions";
 
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
+
+function mergeLibrariesToShared(
+  libraries: AppData["libraries"]
+): AppData["libraries"] {
+  const shared = libraries.find((l) => l.accountId === SHARED_LIBRARY_ID);
+  if (shared && libraries.length === 1) return libraries;
+
+  const partIds = new Set<string>();
+  const buildIds = new Set<string>();
+  const savedParts = [...(shared?.savedParts ?? [])];
+  const builds = [...(shared?.builds ?? [])];
+
+  for (const lib of libraries) {
+    if (lib.accountId === SHARED_LIBRARY_ID) continue;
+    for (const p of lib.savedParts) {
+      if (!partIds.has(p.id)) {
+        partIds.add(p.id);
+        savedParts.push(p);
+      }
+    }
+    for (const b of lib.builds) {
+      if (!buildIds.has(b.id)) {
+        buildIds.add(b.id);
+        builds.push(b);
+      }
+    }
+  }
+
+  return [{ accountId: SHARED_LIBRARY_ID, savedParts, builds }];
+}
 
 function emptyData(): AppData {
   return {
     eventDays: [],
     matches: [],
-    accounts: ensureRingoAccount([]),
-    libraries: [],
+    accounts: [],
+    libraries: [{ accountId: SHARED_LIBRARY_ID, savedParts: [], builds: [] }],
     fighters: [],
     settings: {},
     deletedMatchIds: [],
@@ -24,17 +54,12 @@ function emptyData(): AppData {
 
 export function normalizeAppData(raw: Partial<AppData>): AppData {
   const deletedMatches = deletedIdSet(raw.deletedMatchIds);
-  const deletedAccounts = deletedIdSet(raw.deletedAccountIds);
-  const accounts = ensureRingoAccount(
-    (raw.accounts ?? []).filter((a) => !deletedAccounts.has(a.id))
-  );
+  const libraries = mergeLibrariesToShared(raw.libraries ?? []);
   return {
     eventDays: raw.eventDays ?? [],
     matches: (raw.matches ?? []).filter((m) => !deletedMatches.has(m.id)),
-    accounts,
-    libraries: (raw.libraries ?? []).filter(
-      (l) => !deletedAccounts.has(l.accountId)
-    ),
+    accounts: [],
+    libraries,
     fighters: raw.fighters ?? [],
     settings: raw.settings ?? {},
     deletedMatchIds: raw.deletedMatchIds ?? [],

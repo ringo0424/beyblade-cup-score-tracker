@@ -8,11 +8,11 @@ import { useAppData } from "@/hooks/useAppData";
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentAccount, logout, isAdmin } = useAppData();
-  const isLoginPage = pathname === "/login";
+  const { siteUnlocked, lockSiteSession } = useAppData();
+  const isUnlockPage = pathname === "/login";
 
-  const handleLogout = () => {
-    logout();
+  const handleLock = () => {
+    lockSiteSession();
     router.push("/login");
   };
 
@@ -24,23 +24,20 @@ export function AppHeader() {
             {APP_NAME}
           </h1>
         </Link>
-        {!isLoginPage && currentAccount && (
+        {!isUnlockPage && siteUnlocked && (
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/account"
-              className="text-sm text-arena-neon hover:underline max-w-[8rem] truncate"
+              className="text-xs text-gray-500 hover:text-arena-neon"
             >
-              {currentAccount.name}
-              {isAdmin && (
-                <span className="text-arena-purple text-xs ml-1">管理</span>
-              )}
+              設定
             </Link>
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={handleLock}
               className="text-xs px-2.5 py-1.5 rounded-lg border border-arena-border text-gray-400 hover:text-white hover:border-gray-500"
             >
-              登出
+              鎖定
             </button>
           </div>
         )}

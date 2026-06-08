@@ -23,7 +23,7 @@ export function CloudSyncBar() {
           未設定 Supabase，僅本機儲存
         </p>
         <p className="text-xs text-amber-500/90 mb-3 leading-relaxed">
-          每位使用者各自一份資料，看不到其他人註冊或加入比賽。需在部署平台設定環境變數並重新部署後，全員才會共用同一份雲端資料。
+          每位使用者各自一份資料。需在部署平台設定環境變數並重新部署後，全員才會共用同一份雲端資料。
         </p>
         <ol className="text-xs text-gray-400 space-y-2 list-decimal list-inside leading-relaxed">
           <li>
@@ -68,7 +68,7 @@ export function CloudSyncBar() {
     );
   }
 
-  const accountCount = data.accounts.filter((a) => a.passwordHash).length;
+  const playerCount = data.matches.reduce((n, m) => n + m.players.length, 0);
 
   const handleRefresh = async () => {
     setNotice(null);
@@ -82,7 +82,7 @@ export function CloudSyncBar() {
         <div className="min-w-0">
           <p className="text-xs text-gray-500 mb-1">雲端同步</p>
           <p className="text-sm text-gray-300">
-            帳號 {accountCount} · 比賽 {data.matches.length}
+            比賽 {data.matches.length} · 選手 {playerCount}
           </p>
           <p
             className={`text-xs mt-1 ${
