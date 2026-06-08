@@ -17,6 +17,11 @@ import {
   removePlayerFromMatch,
 } from "@/lib/accounts";
 import {
+  getFighterLibrary,
+  listRegisteredFighters,
+  registerFighter,
+} from "@/lib/fighters/registry";
+import {
   loadAppData,
   normalizeAppData,
   saveAppData,
@@ -67,6 +72,9 @@ interface AppDataContextValue {
   syncEnabled: boolean;
   sharedLibrary: ReturnType<typeof getSharedLibrary>;
   fighterNames: string[];
+  registeredFighters: ReturnType<typeof listRegisteredFighters>;
+  registerFighterByName: (name: string) => void;
+  getLibraryForFighter: (nameKey: string) => ReturnType<typeof getFighterLibrary>;
   saveMatch: (match: Match) => void;
   removeMatchById: (matchId: string) => void;
   addPlayerToMatchById: (matchId: string, name: string) => boolean;
@@ -80,9 +88,10 @@ interface AppDataContextValue {
   removePartFromLibrary: (partId: string) => void;
   saveBuildToLibrary: (
     beyblade: Beyblade,
-    partTypes: Partial<Record<PhstudyPartCategory, string>>
+    partTypes: Partial<Record<PhstudyPartCategory, string>>,
+    ownerId?: string
   ) => void;
-  removeBuildFromLibrary: (buildId: string) => void;
+  removeBuildFromLibrary: (buildId: string, ownerId?: string) => void;
   toxicQuotesEnabled: boolean;
   setToxicQuotesEnabled: (enabled: boolean) => void;
   setFighterIcon: (displayName: string, icon: string | undefined) => void;
@@ -108,6 +117,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const toxicQuotesEnabled = Boolean(dataOrEmpty.settings?.toxicQuotesEnabled);
   const sharedLibrary = getSharedLibrary(dataOrEmpty);
   const fighterNames = listFighterNames(dataOrEmpty);
+  const registeredFighters = listRegisteredFighters(dataOrEmpty);
 
   const persistLocal = useCallback((next: AppData) => {
     const normalized = attachLocalPhotos(normalizeAppData(next));
@@ -367,20 +377,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const registerFighterByName = useCallback(
+    (name: string) => {
+      mutate((d) => registerFighter(d, name));
+    },
+    [mutate]
+  );
+
+  const getLibraryForFighter = useCallback(
+    (nameKey: string) => getFighterLibrary(dataRef.current ?? dataOrEmpty, nameKey),
+    [dataOrEmpty]
+  );
+
   const saveBuildToLibrary = useCallback(
     (
       beyblade: Beyblade,
-      partTypes: Partial<Record<PhstudyPartCategory, string>>
+      partTypes: Partial<Record<PhstudyPartCategory, string>>,
+      ownerId: string = SHARED_LIBRARY_ID
     ) => {
       const build = createLibraryBuild(beyblade, partTypes);
-      mutate((d) => addLibraryBuild(d, SHARED_LIBRARY_ID, build));
+      mutate((d) => addLibraryBuild(d, ownerId, build));
     },
     [mutate]
   );
 
   const removeBuildFromLibrary = useCallback(
-    (buildId: string) => {
-      mutate((d) => removeLibraryBuild(d, SHARED_LIBRARY_ID, buildId));
+    (buildId: string, ownerId: string = SHARED_LIBRARY_ID) => {
+      mutate((d) => removeLibraryBuild(d, ownerId, buildId));
     },
     [mutate]
   );
@@ -413,6 +436,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     syncEnabled,
     sharedLibrary,
     fighterNames,
+    registeredFighters,
+    registerFighterByName,
+    getLibraryForFighter,
     saveMatch,
     removeMatchById,
     addPlayerToMatchById,

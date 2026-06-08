@@ -15,7 +15,6 @@ import {
 } from "@/lib/scoring";
 import type { FinishType, Match } from "@/types";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
-import { ScoreButtons } from "@/components/match/ScoreButtons";
 import { MatchEndScreen } from "@/components/match/MatchEndScreen";
 import { ReplayConfirmModal } from "@/components/match/ReplayConfirmModal";
 import { Button } from "@/components/ui/Button";
@@ -171,6 +170,8 @@ export default function DashboardPage({
           score={pairing.scoreA}
           setup={setupA}
           isWinner={battleDone && pairing.winnerPlayerId === playerA.id}
+          disabled={battleDone}
+          onScore={(finishType) => handleScore("A", finishType)}
         />
         <PlayerScoreCard
           side="B"
@@ -178,6 +179,8 @@ export default function DashboardPage({
           score={pairing.scoreB}
           setup={setupB}
           isWinner={battleDone && pairing.winnerPlayerId === playerB.id}
+          disabled={battleDone}
+          onScore={(finishType) => handleScore("B", finishType)}
         />
       </div>
 
@@ -196,12 +199,6 @@ export default function DashboardPage({
         </Card>
       ) : (
         <>
-          <ScoreButtons
-            playerAName={playerA.name}
-            playerBName={playerB.name}
-            onScore={handleScore}
-          />
-
           <div className="grid grid-cols-2 gap-2 mt-4">
             <Button variant="secondary" onClick={handleUndo}>
               復原上一回合

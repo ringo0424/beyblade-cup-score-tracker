@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 import { DEFAULT_SCORE_RULE } from "@/types";
 import { generateId } from "./id";
+import { isRoundRobinScheduleComplete } from "./pairings";
 
 export function getPointsForFinish(
   finishType: FinishType,
@@ -190,19 +191,33 @@ export function endBattleManually(
 }
 
 export function advanceToNextPairing(match: Match): Match {
-  const currentIndex = match.currentPairingIndex;
+  const active = match.pairings.find((p) => p.status === "inProgress");
+  const currentIndex = active
+    ? match.pairings.indexOf(active)
+    : match.currentPairingIndex;
+
   const pairings = match.pairings.map((p, i) => {
-    if (i === currentIndex) {
+    if (i === currentIndex && p.status === "inProgress") {
       return { ...p, status: "completed" as const };
     }
-    if (i === currentIndex + 1) {
+    if (
+      match.matchType !== "roundRobin" &&
+      i === currentIndex + 1
+    ) {
       return { ...p, status: "inProgress" as const };
     }
     return p;
   });
 
-  const nextIndex = Math.min(currentIndex + 1, pairings.length - 1);
-  const allDone = pairings.every((p) => p.status === "completed");
+  const allDone =
+    match.matchType === "roundRobin"
+      ? isRoundRobinScheduleComplete({ ...match, pairings })
+      : pairings.every((p) => p.status === "completed");
+
+  const nextIndex =
+    match.matchType === "roundRobin" && !allDone
+      ? pairings.length
+      : Math.min(currentIndex + 1, Math.max(0, pairings.length - 1));
 
   let winnerPlayerId = match.winnerPlayerId;
   if (allDone && match.matchType === "roundRobin") {

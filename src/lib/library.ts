@@ -11,19 +11,18 @@ import type { PhstudyPartCategory } from "@/lib/phstudy/types";
 import { SHARED_LIBRARY_ID } from "@/lib/constants";
 
 export function getSharedLibrary(data: AppData): UserLibrary {
+  return getUserLibrary(data, SHARED_LIBRARY_ID);
+}
+
+/** ownerId = 選手 nameKey 或 SHARED_LIBRARY_ID */
+export function getUserLibrary(data: AppData, ownerId: string): UserLibrary {
   return (
-    data.libraries.find((l) => l.accountId === SHARED_LIBRARY_ID) ?? {
-      accountId: SHARED_LIBRARY_ID,
+    data.libraries.find((l) => l.accountId === ownerId) ?? {
+      accountId: ownerId,
       savedParts: [],
       builds: [],
     }
   );
-}
-
-/** @deprecated 改用 getSharedLibrary */
-export function getUserLibrary(data: AppData, accountId: string): UserLibrary {
-  if (accountId === SHARED_LIBRARY_ID) return getSharedLibrary(data);
-  return getSharedLibrary(data);
 }
 
 export function upsertUserLibrary(

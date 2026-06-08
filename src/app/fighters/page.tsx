@@ -1,20 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useAppData } from "@/hooks/useAppData";
-import { listFighterNames } from "@/lib/accounts";
 import { computeFighterStats } from "@/lib/fighters/stats";
-import { fighterNameKey } from "@/lib/fighters/keys";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
-const ICON_PRESETS = ["🏆", "👑", "⚔️", "🔥", "💎", "🌟", "🐉", "🦅", "🎯", "💀"];
-
 export default function FightersPage() {
-  const { data, hydrated, fighterNames, setFighterIcon } = useAppData();
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [draftIcon, setDraftIcon] = useState("");
+  const { data, hydrated, registeredFighters, registerFighterByName } =
+    useAppData();
+  const [newName, setNewName] = useState("");
 
   const statByName = useMemo(() => {
     const map = new Map<string, ReturnType<typeof computeFighterStats>[0]>();
@@ -24,8 +21,6 @@ export default function FightersPage() {
     return map;
   }, [data]);
 
-  const names = fighterNames.length > 0 ? fighterNames : listFighterNames(data);
-
   if (!hydrated) {
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
   }
@@ -34,107 +29,73 @@ export default function FightersPage() {
     <div>
       <h2 className="text-xl font-bold mb-1">選手</h2>
       <p className="text-sm text-gray-500 mb-4">
-        比賽中出現過的選手 · 共 {names.length} 人
+        點選手可查看戰績、零件庫與陀螺組合（全員可編輯）。
       </p>
 
       <CloudSyncBar />
 
-      {names.length === 0 ? (
+      <Card className="mb-4">
+        <label className="label-arena">新增選手</label>
+        <div className="flex gap-2">
+          <input
+            className="input-arena flex-1"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="選手名稱"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newName.trim()) {
+                registerFighterByName(newName.trim());
+                setNewName("");
+              }
+            }}
+          />
+          <Button
+            type="button"
+            onClick={() => {
+              if (!newName.trim()) return;
+              registerFighterByName(newName.trim());
+              setNewName("");
+            }}
+          >
+            新增
+          </Button>
+        </div>
+      </Card>
+
+      {registeredFighters.length === 0 ? (
         <Card>
           <p className="text-center text-gray-500 py-6 text-sm">
-            尚無選手。請在比賽設定頁新增選手名稱。
+            尚無選手。請新增或於建立比賽時加入名稱。
           </p>
         </Card>
       ) : (
-        names.map((name) => {
-          const key = fighterNameKey(name);
-          const stats = statByName.get(key);
-          const icon = stats?.icon;
+        registeredFighters.map((fighter) => {
+          const stats = statByName.get(fighter.nameKey);
+          const icon = stats?.icon ?? fighter.icon;
 
           return (
-            <Card key={key} className="mb-2">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl w-10 h-10 flex items-center justify-center shrink-0">
-                  {icon || "🎮"}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-arena-neon truncate">{name}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    冠軍 {stats?.championCount ?? 0} · 亞軍{" "}
-                    {stats?.runnerUpCount ?? 0}
-                    {(stats?.matchCount ?? 0) > 0
-                      ? ` · 參賽 ${stats!.matchCount} 場`
-                      : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-arena-border/50">
-                {editingKey === key ? (
-                  <div>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {ICON_PRESETS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className={`text-xl px-2 py-1 rounded-lg border ${
-                            draftIcon === emoji
-                              ? "border-arena-neon"
-                              : "border-arena-border"
-                          }`}
-                          onClick={() => setDraftIcon(emoji)}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      className="input-arena mb-2"
-                      maxLength={8}
-                      value={draftIcon}
-                      onChange={(e) => setDraftIcon(e.target.value)}
-                      placeholder="Emoji 或短文字"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1"
-                        onClick={() => {
-                          setFighterIcon(name, draftIcon || undefined);
-                          setEditingKey(null);
-                        }}
-                      >
-                        儲存
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="flex-1"
-                        onClick={() => {
-                          setFighterIcon(name, undefined);
-                          setDraftIcon("");
-                          setEditingKey(null);
-                        }}
-                      >
-                        清除
-                      </Button>
-                      <Button variant="ghost" onClick={() => setEditingKey(null)}>
-                        取消
-                      </Button>
-                    </div>
+            <Link key={fighter.nameKey} href={`/fighters/${fighter.nameKey}`}>
+              <Card className="mb-2 hover:border-arena-neon/40 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl w-10 h-10 flex items-center justify-center shrink-0">
+                    {icon || "🎮"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-arena-neon truncate">
+                      {fighter.displayName}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      冠軍 {stats?.championCount ?? 0} · 亞軍{" "}
+                      {stats?.runnerUpCount ?? 0}
+                      {(stats?.matchCount ?? 0) > 0
+                        ? ` · 參賽 ${stats!.matchCount} 場`
+                        : ""}
+                    </p>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-xs text-arena-purple"
-                    onClick={() => {
-                      setEditingKey(key);
-                      setDraftIcon(icon ?? "");
-                    }}
-                  >
-                    編輯 Icon
-                  </button>
-                )}
-              </div>
-            </Card>
+                  <span className="text-xs text-gray-600 shrink-0">詳情 →</span>
+                </div>
+              </Card>
+            </Link>
           );
         })
       )}

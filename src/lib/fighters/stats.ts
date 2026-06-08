@@ -85,9 +85,8 @@ function applyProfileIcons(
 export function computeFighterStats(data: AppData): FighterStatRow[] {
   const map = new Map<string, FighterStatRow>();
 
-  for (const account of data.accounts) {
-    if (!account.passwordHash) continue;
-    ensureRow(map, normalizeAccountName(account.name), account.id);
+  for (const profile of data.fighters ?? []) {
+    ensureRow(map, profile.displayName, profile.accountId);
   }
 
   for (const match of data.matches) {
@@ -106,7 +105,6 @@ export function computeFighterStats(data: AppData): FighterStatRow[] {
   applyProfileIcons(map, data.fighters ?? []);
 
   return Array.from(map.values()).sort((a, b) => {
-    if (a.signedUp !== b.signedUp) return a.signedUp ? -1 : 1;
     if (b.championCount !== a.championCount) {
       return b.championCount - a.championCount;
     }

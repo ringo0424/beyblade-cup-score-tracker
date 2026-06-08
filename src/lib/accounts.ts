@@ -1,10 +1,8 @@
 import type { AppData, Match, Player } from "@/types";
+import { registerFighter } from "@/lib/fighters/registry";
 import { generateId } from "./id";
 import { getMatch, upsertMatch } from "./storage";
-import {
-  create1v1Pairing,
-  generateRoundRobinPairings,
-} from "./pairings";
+import { create1v1Pairing } from "./pairings";
 import { createDefaultSetup } from "./beyblade";
 
 export function normalizePlayerName(name: string): string {
@@ -18,8 +16,8 @@ export function rebuildMatchPlayers(match: Match, players: Player[]): Match {
   const pairings =
     match.matchType === "1v1" && players.length === 2
       ? create1v1Pairing(players[0].id, players[1].id)
-      : players.length >= 3
-        ? generateRoundRobinPairings(players)
+      : match.status === "inProgress" || match.status === "completed"
+        ? match.pairings
         : [];
 
   const beybladeSetups = players.map(
@@ -71,8 +69,8 @@ export function addPlayerToMatch(
     id: generateId(),
     name: normalized,
   };
-  const updated = rebuildMatchPlayers(match, [...match.players, player]);
-  return upsertMatch(data, updated);
+  const withPlayer = rebuildMatchPlayers(match, [...match.players, player]);
+  return registerFighter(upsertMatch(data, withPlayer), normalized);
 }
 
 export function removePlayerFromMatch(

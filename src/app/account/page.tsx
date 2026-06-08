@@ -1,26 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useAppData } from "@/hooks/useAppData";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CloudSyncBar } from "@/components/sync/CloudSyncBar";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const {
-    lockSiteSession,
-    toxicQuotesEnabled,
-    setToxicQuotesEnabled,
-    resetAll,
-    data,
-  } = useAppData();
+  const { toxicQuotesEnabled, setToxicQuotesEnabled, resetAll, data } =
+    useAppData();
 
   return (
     <div>
       <h2 className="text-xl font-bold mb-1">設定</h2>
       <p className="text-sm text-gray-500 mb-4">
-        網站以單一密碼保護；解鎖後所有人可建立比賽與填寫陀螺。
+        活動模式：免密碼，全員可建立比賽、管理選手與陀螺庫。
       </p>
 
       <CloudSyncBar />
@@ -36,18 +29,6 @@ export default function SettingsPage() {
           />
         </label>
       </Card>
-
-      <Button
-        variant="secondary"
-        fullWidth
-        className="mb-3"
-        onClick={() => {
-          lockSiteSession();
-          router.push("/login");
-        }}
-      >
-        鎖定網站
-      </Button>
 
       {data.matches.length > 0 && (
         <Button

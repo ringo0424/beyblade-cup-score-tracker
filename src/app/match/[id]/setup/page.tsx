@@ -9,6 +9,8 @@ import {
   maxPlayersForMatch,
   minPlayersForMatch,
 } from "@/lib/accounts";
+import { fighterNameKey } from "@/lib/fighters/keys";
+import { create1v1Pairing } from "@/lib/pairings";
 import { createDefaultSetup } from "@/lib/beyblade";
 import type { BeybladeSetup, Match } from "@/types";
 import { BeybladeTabPanel } from "@/components/beyblade/BeybladeTabPanel";
@@ -31,6 +33,7 @@ export default function SetupPage({
     saveMatch,
     hydrated,
     sharedLibrary,
+    getLibraryForFighter,
     addPlayerToMatchById,
     removePlayerFromMatchById,
   } = useAppData();
@@ -98,6 +101,16 @@ export default function SetupPage({
         ? createDefaultSetup(editingPlayer.id)
         : null;
 
+  const playerLibrary = editingPlayer
+    ? getLibraryForFighter(fighterNameKey(editingPlayer.name))
+    : sharedLibrary;
+  const libraryBuilds = [
+    ...playerLibrary.builds,
+    ...sharedLibrary.builds.filter(
+      (b) => !playerLibrary.builds.some((x) => x.id === b.id)
+    ),
+  ];
+
   const updateSetup = (updated: BeybladeSetup) => {
     if (setupIndex < 0) return;
     const setups = [...match.beybladeSetups];
@@ -121,9 +134,14 @@ export default function SetupPage({
 
   const startMatch = () => {
     if (match.players.length < minPlayers) return;
-    const updated: Match = {
+    let updated: Match = {
       ...match,
       status: "inProgress",
+      pairings:
+        match.matchType === "1v1" && match.players.length === 2
+          ? create1v1Pairing(match.players[0].id, match.players[1].id)
+          : [],
+      currentPairingIndex: 0,
       updatedAt: new Date().toISOString(),
     };
     saveMatch(updated);
@@ -224,7 +242,7 @@ export default function SetupPage({
               onChangeBeyblade={updateBeyblade}
               onActiveIndexChange={setActiveSlot}
               headerExtra={
-                sharedLibrary.builds.length > 0 ? (
+                libraryBuilds.length > 0 ? (
                   <div className="mb-4">
                     <label className="label-arena">
                       從陀螺庫選擇（戰刃 {activeSlot + 1}）
@@ -233,7 +251,7 @@ export default function SetupPage({
                       className="input-arena"
                       defaultValue=""
                       onChange={(e) => {
-                        const build = sharedLibrary.builds.find(
+                        const build = libraryBuilds.find(
                           (b) => b.id === e.target.value
                         );
                         if (build) {
@@ -250,7 +268,7 @@ export default function SetupPage({
                       }}
                     >
                       <option value="">— 手動填寫 —</option>
-                      {sharedLibrary.builds.map((b) => (
+                      {libraryBuilds.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.nickname || "未命名"} ({b.typeLabel})
                         </option>

@@ -4,7 +4,13 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppData } from "@/hooks/useAppData";
-import { getMatch } from "@/lib/storage";
+import { resolveMatch } from "@/lib/storage";
+import {
+  addChosenPairing,
+  getActivePairing,
+  getRemainingPairOptions,
+  needsPairingPick,
+} from "@/lib/pairings";
 import { applyCelebrationPhotos } from "@/lib/matchPhotos";
 import {
   applyScoreRound,
@@ -15,9 +21,9 @@ import {
 } from "@/lib/scoring";
 import type { FinishType, Match } from "@/types";
 import { PlayerScoreCard } from "@/components/match/PlayerScoreCard";
-import { ScoreButtons } from "@/components/match/ScoreButtons";
 import { Leaderboard } from "@/components/match/Leaderboard";
 import { MatchEndScreen } from "@/components/match/MatchEndScreen";
+import { PairingPicker } from "@/components/match/PairingPicker";
 import { ReplayConfirmModal } from "@/components/match/ReplayConfirmModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -35,7 +41,7 @@ export default function RoundRobinPage({
 
   useEffect(() => {
     if (!hydrated) return;
-    const m = getMatch(data, id);
+    const m = resolveMatch(data, id);
     if (!m) {
       router.replace("/");
       return;
@@ -51,14 +57,14 @@ export default function RoundRobinPage({
     return <p className="text-gray-500 text-center py-8">載入中…</p>;
   }
 
-  const pairing = match.pairings[match.currentPairingIndex];
+  const pairing = getActivePairing(match);
   const leaderboard = getLeaderboard(match.players, match.pairings);
   const completedCount = match.pairings.filter(
     (p) => p.status === "completed"
   ).length;
   const allDone = match.status === "completed";
-
-  if (!pairing && !allDone) return null;
+  const pickNext = needsPairingPick(match);
+  const remainingCount = getRemainingPairOptions(match).length;
 
   const persist = (updated: Match) => {
     setMatch(updated);
@@ -90,11 +96,32 @@ export default function RoundRobinPage({
     );
   }
 
-  const playerA = match.players.find((p) => p.id === pairing.playerAId)!;
-  const playerB = match.players.find((p) => p.id === pairing.playerBId)!;
+  if (pickNext) {
+    return (
+      <div>
+        <h2 className="text-lg font-bold text-arena-neon mb-2">{match.name}</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          循環賽 · 已完成 {completedCount} 場 · 尚餘 {remainingCount} 組
+        </p>
+        <Leaderboard entries={leaderboard} />
+        <PairingPicker
+          match={match}
+          onConfirm={(a, b) => persist(addChosenPairing(match, a, b))}
+        />
+        <Link href="/" className="block text-center text-sm text-gray-500 mt-4">
+          返回首頁
+        </Link>
+      </div>
+    );
+  }
+
+  if (!pairing && !allDone) return null;
+
+  const playerA = match.players.find((p) => p.id === pairing!.playerAId)!;
+  const playerB = match.players.find((p) => p.id === pairing!.playerBId)!;
   const setupA = match.beybladeSetups.find((s) => s.playerId === playerA.id);
   const setupB = match.beybladeSetups.find((s) => s.playerId === playerB.id);
-  const battleDone = pairing.status === "completed";
+  const battleDone = pairing!.status === "completed";
   const unlimited = match.scoreTarget === "unlimited";
 
   const handleScore = (side: "A" | "B", finishType: FinishType) => {
@@ -102,7 +129,7 @@ export default function RoundRobinPage({
     const scoringPlayerId = side === "A" ? playerA.id : playerB.id;
     const result = applyScoreRound({
       match,
-      pairing,
+      pairing: pairing!,
       scoringPlayerId,
       finishType,
     });
@@ -116,12 +143,12 @@ export default function RoundRobinPage({
   };
 
   const handleUndo = () => {
-    const updated = undoLastRound(match, pairing.id);
+    const updated = undoLastRound(match, pairing!.id);
     if (updated) persist(updated);
   };
 
   const handleEndBattle = () => {
-    let updated = endBattleManually(match, pairing);
+    let updated = endBattleManually(match, pairing!);
     updated = advanceToNextPairing(updated);
     persist(updated);
   };
@@ -160,16 +187,20 @@ export default function RoundRobinPage({
         <PlayerScoreCard
           side="A"
           player={playerA}
-          score={pairing.scoreA}
+          score={pairing!.scoreA}
           setup={setupA}
-          isWinner={battleDone && pairing.winnerPlayerId === playerA.id}
+          isWinner={battleDone && pairing!.winnerPlayerId === playerA.id}
+          disabled={battleDone}
+          onScore={(finishType) => handleScore("A", finishType)}
         />
         <PlayerScoreCard
           side="B"
           player={playerB}
-          score={pairing.scoreB}
+          score={pairing!.scoreB}
           setup={setupB}
-          isWinner={battleDone && pairing.winnerPlayerId === playerB.id}
+          isWinner={battleDone && pairing!.winnerPlayerId === playerB.id}
+          disabled={battleDone}
+          onScore={(finishType) => handleScore("B", finishType)}
         />
       </div>
 
@@ -177,18 +208,11 @@ export default function RoundRobinPage({
         <Card className="mb-4 text-center py-4">
           <p className="text-arena-neon font-medium">本組合已結束</p>
           <Button fullWidth className="mt-3" onClick={handleEndBattle}>
-            {match.currentPairingIndex < match.pairings.length - 1
-              ? "下一組合"
-              : "完成比賽"}
+            {remainingCount > 0 ? "選擇下一場對戰" : "完成比賽"}
           </Button>
         </Card>
       ) : (
         <>
-          <ScoreButtons
-            playerAName={playerA.name}
-            playerBName={playerB.name}
-            onScore={handleScore}
-          />
           <div className="grid grid-cols-2 gap-2 mt-4">
             <Button variant="secondary" onClick={handleUndo}>
               復原
